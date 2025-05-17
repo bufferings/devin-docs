@@ -8,188 +8,107 @@ nav_order: 2
 
 # よくあるユースケース
 
-## ローリングデプロイ
+ecspressoの一般的なユースケースを紹介します。
 
-ローリングデプロイは、ecspressoのデフォルトのデプロイ方法です：
+## 1. 既存サービスの管理
+
+既に稼働しているECSサービスをecspressoで管理する場合：
 
 ```console
-$ ecspresso deploy --config ecspresso.yml
-2017/11/09 23:20:13 myService/default Starting deploy
-Service: myService
-Cluster: default
-TaskDefinition: myService:3
-Deployments:
-    PRIMARY myService:3 desired:1 pending:0 running:1
-Events:
-2017/11/09 23:20:13 myService/default Creating a new task definition by myTask.json
-2017/11/09 23:20:13 myService/default Registering a new task definition...
-2017/11/09 23:20:13 myService/default Task definition is registered myService:4
-2017/11/09 23:20:13 myService/default Updating service...
-2017/11/09 23:20:13 myService/default Waiting for service stable...(it will take a few minutes)
-2017/11/09 23:23:23 myService/default  PRIMARY myService:4 desired:1 pending:0 running:1
-2017/11/09 23:23:29 myService/default Service is stable now. Completed!
+# 設定ファイルの初期化
+$ ecspresso init --region ap-northeast-1 --cluster default --service myservice
+
+# 設定ファイルをバージョン管理に追加
+$ git add ecspresso.yml ecs-service-def.json ecs-task-def.json
+$ git commit -m "Add ecspresso configuration"
+
+# 以降はecspressoでデプロイ
+$ ecspresso deploy
 ```
 
-## Blue/Greenデプロイ（AWS CodeDeployを使用）
+## 2. Blue/Greenデプロイ
 
-`ecspresso deploy`は、CODE_DEPLOYデプロイメントコントローラーを使用してサービスをデプロイできます。ecs-service-def.jsonを以下のように設定します：
+AWS CodeDeployを使用したBlue/Greenデプロイを行う場合：
 
+```console
+# サービス定義にCodeDeployの設定を追加
+# ecs-service-def.jsonを編集し、deploymentControllerを設定
+
+# デプロイ実行
+$ ecspresso deploy
+```
+
+サービス定義の例：
 ```json
 {
   "deploymentController": {
     "type": "CODE_DEPLOY"
   },
-  // ...
+  "loadBalancers": [
+    {
+      "containerName": "app",
+      "containerPort": 80,
+      "targetGroupArn": "arn:aws:elasticloadbalancing:ap-northeast-1:123456789012:targetgroup/blue/1234567890123456"
+    }
+  ]
 }
 ```
 
-重要な注意点：
+## 3. タスクの実行とログ監視
 
-- ecspressoはCodeDeployリソースを作成または変更しません。ECSサービス用のアプリケーションとデプロイメントグループをCodeDeployで別途作成する必要があります。
-- ecspressoはECSサービスのCodeDeployデプロイ設定を自動的に検出します。
+一時的なタスクを実行し、ログを監視する場合：
 
-設定ファイルでCodeDeployの設定を指定することもできます：
+```console
+# タスク実行とログ監視
+$ ecspresso run --watch-container=app
+```
+
+## 4. サービスのスケーリング
+
+サービスのタスク数を変更する場合：
+
+```console
+# タスク数を5に変更
+$ ecspresso scale --tasks=5
+```
+
+## 5. 環境変数を使った複数環境対応
+
+環境ごとに異なる設定を使用する場合：
+
+```console
+# 開発環境用の環境変数ファイル
+$ cat .env.dev
+CLUSTER=dev-cluster
+SERVICE=myservice-dev
+
+# 本番環境用の環境変数ファイル
+$ cat .env.prod
+CLUSTER=prod-cluster
+SERVICE=myservice-prod
+
+# 開発環境へのデプロイ
+$ ecspresso --envfile=.env.dev deploy
+
+# 本番環境へのデプロイ
+$ ecspresso --envfile=.env.prod deploy
+```
+
+## 6. CI/CDパイプラインでの利用
+
+GitHub Actionsでの利用例：
 
 ```yaml
-# ecspresso.yml
-codedeploy:
-  application_name: myapp
-  deployment_group_name: mydeployment
-  deployment_config_name: myDeploymentConfig # オプション
-```
-
-## スケールアウト/イン
-
-サービスの希望するタスク数を変更するには、`scale --tasks`を指定します：
-
-```console
-$ ecspresso scale --tasks 10
-```
-
-`scale`コマンドは、`deploy --skip-task-definition --no-update-service`と同等です。
-
-## Application Auto Scalingの管理
-
-ECSサービスでApplication Auto Scalingを使用している場合、最小値と最大値の自動スケーリング設定を`ecspresso scale`コマンドで調整できます：
-
-```console
-$ ecspresso scale --tasks 5 --auto-scaling-min 5 --auto-scaling-max 20
-```
-
-自動スケーリングの一時停止/再開：
-
-- `--suspend-auto-scaling` - 一時停止状態をtrueに設定
-- `--resume-auto-scaling` - 一時停止状態をfalseに設定
-
-## タスクの実行
-
-```console
-$ ecspresso run --config ecspresso.yml --task-def=db-migrate.json
-```
-
-`--task-def`が設定されていない場合、ecspressoはサービスに含まれるタスク定義を使用します。
-
-ecspressoの一般的なユースケースを紹介します。
-
-## ローリングデプロイ
-
-ECSの標準的なローリングデプロイを実行する場合：
-
-```console
-$ ecspresso deploy
-```
-
-## Blue/Greenデプロイ
-
-AWS CodeDeployを使用したBlue/Greenデプロイを実行する場合：
-
-```console
-$ ecspresso deploy --blue-green
-```
-
-## Fargateへのデプロイ
-
-Fargateを使用する場合、タスク定義と設定ファイルに特定の設定が必要です：
-
-タスク定義：
-- `requiresCompatibilities`に`"FARGATE"`を指定
-- `networkMode`は`"awsvpc"`が必要
-- `cpu`と`memory`の指定が必要
-
-```json
-{
-  "taskDefinition": {
-    "networkMode": "awsvpc",
-    "requiresCompatibilities": [
-      "FARGATE"
-    ],
-    "cpu": "1024",
-    "memory": "2048",
-    // ...
-  }
-}
-```
-
-サービス定義：
-- `launchType`に`"FARGATE"`を指定
-- `networkConfiguration`の設定が必要
-
-```json
-{
-  "launchType": "FARGATE",
-  "networkConfiguration": {
-    "awsvpcConfiguration": {
-      "subnets": [
-        "subnet-aaaaaaaa",
-        "subnet-bbbbbbbb"
-      ],
-      "securityGroups": [
-        "sg-11111111"
-      ],
-      "assignPublicIp": "ENABLED"
-    }
-  },
-  // ...
-}
-```
-
-## Fargate Spotの利用
-
-コスト最適化のためにFargate Spotを利用する場合：
-
-```json
-{
-  "capacityProviderStrategy": [
-    {
-      "base": 1,
-      "capacityProvider": "FARGATE",
-      "weight": 1
-    },
-    {
-      "base": 0,
-      "capacityProvider": "FARGATE_SPOT",
-      "weight": 1
-    }
-  ],
-  // ...
-}
-```
-
-## デプロイフロー図
-
-以下は異なるデプロイ戦略のフロー図です：
-
-```mermaid
-graph TD
-    A[デプロイ戦略選択] --> B{デプロイタイプ}
-    B -->|標準ローリング| C[ecspresso deploy]
-    B -->|Blue/Green| D[ecspresso deploy --blue-green]
-    B -->|Fargate| E[Fargate設定]
-    E --> F[ecspresso deploy]
-    B -->|Fargate Spot| G[Capacity Provider設定]
-    G --> H[ecspresso deploy --update-service]
-    C --> I[デプロイ完了]
-    D --> I
-    F --> I
-    H --> I
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: kayac/ecspresso@v2
+        with:
+          command: deploy
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ap-northeast-1
 ```

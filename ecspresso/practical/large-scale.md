@@ -8,164 +8,172 @@ nav_order: 3
 
 # 大規模サービスの管理
 
-ecspressoを使用して大規模なECSサービスを効率的に管理する方法を説明します。
+大規模なECSサービスを管理する場合、ecspressoを効果的に活用するためのベストプラクティスを紹介します。
 
-## マイクロサービスアーキテクチャでの活用
+## モジュール化された設定
 
-多数のマイクロサービスを管理する場合、各サービスごとにecspressoの設定を用意することで、独立したデプロイが可能になります。v2では、Jsonnet形式の設定ファイルもサポートされ、より柔軟な設定管理が可能になりました。
+大規模なプロジェクトでは、設定を小さなモジュールに分割することで管理が容易になります。
 
-```
-.
-├── service-a/
-│   ├── ecspresso.yml (または ecspresso.jsonnet)
-│   ├── ecs-task-def.json (または ecs-task-def.jsonnet)
-│   └── ecs-service-def.json (または ecs-service-def.jsonnet)
-├── service-b/
-│   ├── ecspresso.yml (または ecspresso.jsonnet)
-│   ├── ecs-task-def.json (または ecs-task-def.jsonnet)
-│   └── ecs-service-def.json (または ecs-service-def.jsonnet)
-└── service-c/
-    ├── ecspresso.yml (または ecspresso.jsonnet)
-    ├── ecs-task-def.json (または ecs-task-def.jsonnet)
-    └── ecs-service-def.json (または ecs-service-def.jsonnet)
-```
+### Jsonnetの活用
 
-v2では、共通のJsonnetライブラリを使用して設定を共有することもできます：
+ecspressoはJsonnetをサポートしており、これを使用して設定を効率的に管理できます。
 
-```
-.
-├── lib/
-│   ├── base-task-def.libsonnet
-│   └── base-service-def.libsonnet
-├── service-a/
-│   ├── ecspresso.jsonnet
-│   ├── ecs-task-def.jsonnet
-│   └── ecs-service-def.jsonnet
-├── service-b/
-...
-```
-
-## 共通設定の再利用
-
-複数のサービスで共通の設定を再利用するには、テンプレート関数やプラグインを活用します。v2では、Jsonnetサポートが追加され、より柔軟な設定の再利用が可能になりました。
-
-### テンプレート関数による再利用
-
-例えば、共通のタスク実行ロールやロギング設定を持つ基本タスク定義テンプレートを作成し、各サービスで拡張できます：
-
-```json
+```jsonnet
+// base.libsonnet
 {
-  "executionRoleArn": "{{ tfstate `aws_iam_role.ecs_task_execution.arn` }}",
-  "taskRoleArn": "{{ tfstate `aws_iam_role.ecs_task.arn` }}",
-  "family": "{{ env `SERVICE_NAME` }}",
-  "networkMode": "awsvpc",
-  "requiresCompatibilities": ["FARGATE"],
-  "cpu": "{{ env `TASK_CPU` }}",
-  "memory": "{{ env `TASK_MEMORY` }}",
-  "containerDefinitions": [
-    {
-      "name": "{{ env `SERVICE_NAME` }}",
-      "image": "{{ env `ECR_REPOSITORY_URL` }}/{{ env `SERVICE_NAME` }}:{{ env `IMAGE_TAG` }}",
-      "logConfiguration": {
-        "logDriver": "awslogs",
-        "options": {
-          "awslogs-group": "/ecs/{{ env `SERVICE_NAME` }}",
-          "awslogs-region": "{{ env `AWS_REGION` }}",
-          "awslogs-stream-prefix": "ecs"
-        }
+  base_task: {
+    family: "myapp",
+    networkMode: "awsvpc",
+    executionRoleArn: "arn:aws:iam::123456789012:role/ecsTaskExecutionRole",
+    requiresCompatibilities: ["FARGATE"],
+    cpu: "256",
+    memory: "512",
+  },
+  
+  base_container: {
+    essential: true,
+    logConfiguration: {
+      logDriver: "awslogs",
+      options: {
+        "awslogs-group": "/ecs/myapp",
+        "awslogs-region": "ap-northeast-1",
+        "awslogs-stream-prefix": "ecs"
       }
+    }
+  }
+}
+
+// task-def.jsonnet
+local base = import 'base.libsonnet';
+
+{
+  family: base.base_task.family,
+  networkMode: base.base_task.networkMode,
+  executionRoleArn: base.base_task.executionRoleArn,
+  requiresCompatibilities: base.base_task.requiresCompatibilities,
+  cpu: base.base_task.cpu,
+  memory: base.base_task.memory,
+  containerDefinitions: [
+    base.base_container + {
+      name: "app",
+      image: "myapp:latest",
+      portMappings: [
+        {
+          containerPort: 80,
+          hostPort: 80,
+          protocol: "tcp"
+        }
+      ]
+    },
+    base.base_container + {
+      name: "sidecar",
+      image: "sidecar:latest",
+      essential: false
     }
   ]
 }
 ```
 
-### Jsonnetによる再利用（v2）
-
-v2では、Jsonnetを使用してより柔軟な設定の再利用が可能になりました：
-
-```jsonnet
-// base-task-def.libsonnet
-{
-  createTaskDefinition(serviceName, cpu, memory, image):: {
-    executionRoleArn: "arn:aws:iam::123456789012:role/ecsTaskExecutionRole",
-    taskRoleArn: "arn:aws:iam::123456789012:role/ecsTaskRole",
-    family: serviceName,
-    networkMode: "awsvpc",
-    requiresCompatibilities: ["FARGATE"],
-    cpu: cpu,
-    memory: memory,
-    containerDefinitions: [
-      {
-        name: serviceName,
-        image: image,
-        logConfiguration: {
-          logDriver: "awslogs",
-          options: {
-            "awslogs-group": "/ecs/" + serviceName,
-            "awslogs-region": "ap-northeast-1",
-            "awslogs-stream-prefix": "ecs"
-          }
-        }
-      }
-    ]
-  }
-}
-```
-
-## スケーリング戦略
-
-大規模サービスでは、適切なスケーリング戦略が重要です。ecspressoでは、サービス定義でAuto Scalingの設定を管理できます。
-
-```json
-{
-  "deploymentConfiguration": {
-    "deploymentCircuitBreaker": {
-      "enable": true,
-      "rollback": true
-    },
-    "maximumPercent": 200,
-    "minimumHealthyPercent": 100
-  },
-  "desiredCount": 10,
-  "enableECSManagedTags": true,
-  "healthCheckGracePeriodSeconds": 60,
-  "launchType": "FARGATE"
-}
-```
-
-さらに、Application Auto Scalingを設定して、トラフィックに応じて自動的にスケールするようにできます：
+使用方法：
 
 ```console
-$ aws application-autoscaling register-scalable-target \
-  --service-namespace ecs \
-  --scalable-dimension ecs:service:DesiredCount \
-  --resource-id service/my-cluster/my-service \
-  --min-capacity 5 \
-  --max-capacity 50
-
-$ aws application-autoscaling put-scaling-policy \
-  --policy-name cpu-tracking-scaling-policy \
-  --service-namespace ecs \
-  --scalable-dimension ecs:service:DesiredCount \
-  --resource-id service/my-cluster/my-service \
-  --policy-type TargetTrackingScaling \
-  --target-tracking-scaling-policy-configuration '{ 
-    "TargetValue": 70.0, 
-    "PredefinedMetricSpecification": { 
-      "PredefinedMetricType": "ECSServiceAverageCPUUtilization" 
-    }
-  }'
+$ ecspresso render --task-def=task-def.jsonnet > ecs-task-def.json
+$ ecspresso deploy
 ```
 
-## Blue/Greenデプロイの活用
+## サービスの分割
 
-大規模サービスでは、ダウンタイムを最小限に抑えるためにBlue/Greenデプロイを活用することが重要です。ecspressoは、AWS CodeDeployを使用したBlue/Greenデプロイをサポートしています。
+大規模なアプリケーションでは、複数の小さなサービスに分割することで管理が容易になります。
+
+### マイクロサービスアーキテクチャ
+
+```mermaid
+graph TD
+  A[フロントエンド] --> B[API Gateway]
+  B --> C[認証サービス]
+  B --> D[ユーザーサービス]
+  B --> E[商品サービス]
+  B --> F[注文サービス]
+  
+  subgraph "ecspresso管理"
+    C
+    D
+    E
+    F
+  end
+```
+
+各サービスごとに別々のecspresso設定を使用します：
+
+```
+.
+├── services/
+│   ├── auth/
+│   │   ├── ecspresso.yml
+│   │   ├── ecs-task-def.json
+│   │   └── ecs-service-def.json
+│   ├── user/
+│   │   ├── ecspresso.yml
+│   │   ├── ecs-task-def.json
+│   │   └── ecs-service-def.json
+│   ├── product/
+│   │   ├── ecspresso.yml
+│   │   ├── ecs-task-def.json
+│   │   └── ecs-service-def.json
+│   └── order/
+│       ├── ecspresso.yml
+│       ├── ecs-task-def.json
+│       └── ecs-service-def.json
+```
+
+## リソース管理
+
+大規模なサービスでは、リソースの効率的な管理が重要です。
+
+### オートスケーリングの設定
+
+ecspressoを使用してアプリケーションのオートスケーリングを管理できます：
 
 ```console
-$ ecspresso deploy --blue-green
+# オートスケーリングの一時停止
+$ ecspresso deploy --suspend-auto-scaling
+
+# オートスケーリングの再開
+$ ecspresso deploy --resume-auto-scaling
+
+# オートスケーリングの最小・最大容量を設定
+$ ecspresso deploy --autoscaling-min=2 --autoscaling-max=10
 ```
 
-サービス定義では、Blue/Greenデプロイの設定を指定します：
+### リソース使用状況の監視
+
+CloudWatchと連携して、リソース使用状況を監視します：
+
+```yaml
+# CloudWatch Dashboardの例
+widgets:
+  - type: metric
+    x: 0
+    y: 0
+    width: 12
+    height: 6
+    properties:
+      metrics:
+        - [ "AWS/ECS", "CPUUtilization", "ServiceName", "myservice", "ClusterName", "default" ]
+        - [ "AWS/ECS", "MemoryUtilization", "ServiceName", "myservice", "ClusterName", "default" ]
+      view: timeSeries
+      stacked: false
+      region: ap-northeast-1
+      title: ECS Service Metrics
+```
+
+## デプロイ戦略
+
+大規模なサービスでは、安全なデプロイ戦略が重要です。
+
+### Blue/Greenデプロイ
+
+AWS CodeDeployを使用したBlue/Greenデプロイを設定します：
 
 ```json
 {
@@ -176,68 +184,81 @@ $ ecspresso deploy --blue-green
     {
       "containerName": "app",
       "containerPort": 80,
-      "targetGroupArn": "{{ tfstate `aws_lb_target_group.blue.arn` }}"
+      "targetGroupArn": "arn:aws:elasticloadbalancing:ap-northeast-1:123456789012:targetgroup/blue/1234567890123456"
     }
   ]
 }
 ```
 
-## 大規模サービス管理のアーキテクチャ図
-
-以下は大規模サービスの管理アーキテクチャを示しています：
+デプロイフロー：
 
 ```mermaid
-graph TB
-    subgraph "CI/CD Pipeline"
-    A[コード変更] --> B[ビルド]
-    B --> C[テスト]
-    C --> D[イメージ作成]
-    D --> E[ECRにプッシュ]
-    end
-    
-    subgraph "Deployment"
-    E --> F[ecspresso deploy --blue-green]
-    F --> G[CodeDeploy]
-    end
-    
-    subgraph "AWS Infrastructure"
-    G --> H[ECS Blue環境]
-    G --> I[ECS Green環境]
-    H --> J[ALB]
-    I --> J
-    J --> K[ユーザートラフィック]
-    end
-    
-    subgraph "Monitoring"
-    H --> L[CloudWatch]
-    I --> L
-    L --> M[アラート]
-    M --> N[自動スケーリング]
-    N --> H
-    N --> I
-    end
+sequenceDiagram
+  participant User as ユーザー
+  participant Ecspresso as ecspresso
+  participant CodeDeploy as AWS CodeDeploy
+  participant ECS as AWS ECS
+  
+  User->>Ecspresso: deploy
+  Ecspresso->>ECS: タスク定義登録
+  ECS-->>Ecspresso: タスク定義ARN
+  Ecspresso->>CodeDeploy: デプロイ作成
+  CodeDeploy->>ECS: 新しいタスク定義でタスク作成
+  CodeDeploy->>CodeDeploy: トラフィックシフト
+  CodeDeploy-->>Ecspresso: デプロイ状態
+  Ecspresso-->>User: デプロイ完了
+```
+
+### カナリアデプロイ
+
+段階的にトラフィックを移行するカナリアデプロイも実装できます：
+
+```console
+# 最初に少数のタスクをデプロイ
+$ ecspresso deploy --tasks=1
+
+# 問題がなければ残りのタスクをデプロイ
+$ ecspresso deploy --tasks=10
 ```
 
 ## パフォーマンスチューニング
 
-大規模サービスでは、パフォーマンスチューニングが重要です。ecspressoを使用して、以下の設定を最適化できます：
+大規模なサービスでは、パフォーマンスチューニングが重要です。
 
-1. **タスク定義のCPUとメモリ**: ワークロードに適したCPUとメモリの割り当て
-2. **コンテナのヘルスチェック**: 適切なヘルスチェック設定
-3. **デプロイ設定**: 適切な`maximumPercent`と`minimumHealthyPercent`の設定
-4. **サーキットブレーカー**: デプロイ失敗時の自動ロールバック
+### タスク定義の最適化
 
 ```json
 {
-  "deploymentConfiguration": {
-    "deploymentCircuitBreaker": {
-      "enable": true,
-      "rollback": true
-    },
-    "maximumPercent": 150,
-    "minimumHealthyPercent": 100
-  }
+  "containerDefinitions": [
+    {
+      "name": "app",
+      "image": "myapp:latest",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 80,
+          "hostPort": 80,
+          "protocol": "tcp"
+        }
+      ],
+      "cpu": 256,
+      "memory": 512,
+      "memoryReservation": 256,
+      "ulimits": [
+        {
+          "name": "nofile",
+          "softLimit": 65536,
+          "hardLimit": 65536
+        }
+      ],
+      "healthCheck": {
+        "command": [ "CMD-SHELL", "curl -f http://localhost/health || exit 1" ],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      }
+    }
+  ]
 }
 ```
-
-これらの設定を適切に調整することで、大規模サービスでも安定したデプロイと運用が可能になります。

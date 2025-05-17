@@ -8,294 +8,53 @@ nav_order: 1
 
 # ecspressoとは
 
-ecspressoは、Amazon ECSのデプロイツールです。その名前は「espresso」と同じ発音で、コーヒーのエスプレッソにちなんでいます。
+ecspressoは、Amazon ECS（Elastic Container Service）のためのデプロイツールです。コード化されたタスク定義とサービス定義を使用して、ECSリソースをデプロイ、更新、監視することができます。
 
 ## 主な機能
 
-ecspressoは以下のような機能を提供します：
+- **シンプルなデプロイ**: 既存のECSサービスを簡単に更新
+- **テンプレート機能**: 環境変数を使用して設定をカスタマイズ
+- **Blue/Greenデプロイ**: AWS CodeDeployを使用した無停止デプロイ
+- **タスク管理**: ワンタイムタスクの実行とログ監視
+- **リソース検証**: サービス設定の検証とトラブルシューティング
+- **Jsonnetサポート**: 高度な設定管理
 
-- **サービスのデプロイ** - 既存のECSサービスを簡単に更新
-- **タスク定義の管理** - JSONやJSONnet形式でタスク定義ファイルを管理
-- **Blue/Greenデプロイ** - AWS CodeDeployを使用した無停止デプロイ
-- **オートスケーリングの管理** - Application Auto Scalingの設定管理
-- **タスクの実行** - ワンタイムタスクの実行とログ監視
-- **リソース検証** - サービス設定の検証とトラブルシューティング
-
-## 動作の仕組み
-
-ecspressoは、設定ファイル（YAML、JSON、Jsonnet形式）に基づいてECSのリソースを管理します。
+## アーキテクチャ
 
 ```mermaid
 graph TD
-    A[設定ファイル ecspresso.yml] --> B[タスク定義 JSON/Jsonnet]
-    A --> C[サービス定義 JSON/Jsonnet]
-    B --> D[ecspresso CLI]
-    C --> D
-    D --> E[AWS SDK]
-    E --> F[Amazon ECS]
-    E --> G[CodeDeploy]
-    E --> H[Auto Scaling]
-    E --> I[CloudWatch Logs]
+  A[ecspresso] --> B[AWS ECS]
+  A --> C[AWS CodeDeploy]
+  A --> D[CloudWatch Logs]
+  B --> E[ECSサービス]
+  B --> F[ECSタスク]
+  C --> G[Blue/Greenデプロイ]
 ```
 
-ecspressoを使用することで、ECSサービスのデプロイをコード化し、より安全で再現可能なデプロイプロセスを実現できます。
+## ワークフロー
 
-ecspressoは、Amazon ECS（Elastic Container Service）向けのデプロイツールです。コマンドラインから簡単にECSサービスとタスク定義を管理することができます。
+ecspressoの基本的なワークフローは以下の通りです：
 
-## 主な機能
-
-- ECSサービスのデプロイ管理
-- タスク定義の登録と管理
-- Blue/Greenデプロイのサポート（AWS CodeDeployと連携）
-- ロールバック機能
-- タスクの実行と管理
-- テンプレート機能による環境変数の置換
-- Jsonnetサポートによる柔軟な設定
-- 外部プラグインのサポート
-- AWS Secrets ManagerとSSMパラメータストアの統合
-- ECS Service Connectのサポート
-- Fargate Spotのサポート
-- VPC Latticeのサポート
-- EBSボリュームのサポート
-
-## アーキテクチャ概要
-
-```mermaid
-graph TD
-    A[ecspresso CLI] --> B[AWS SDK]
-    B --> C[Amazon ECS]
-    B --> D[AWS CodeDeploy]
-    B --> E[AWS CloudWatch]
-    B --> F[AWS Secrets Manager]
-    B --> G[AWS SSM]
-    B --> H[AWS IAM]
-    B --> I[AWS ELBv2]
-    B --> J[AWS Service Discovery]
-    B --> K[AWS VPC Lattice]
-    C --> L[ECSサービス]
-    C --> M[タスク定義]
-    C --> N[タスク]
-    D --> O[Blue/Greenデプロイ]
-```
-
-## ecspressoが解決する課題
-
-Amazon ECSでのデプロイは、タスク定義の登録、サービスの更新、デプロイの監視など、複数のステップが必要です。ecspressoはこれらのステップを自動化し、一貫性のあるデプロイプロセスを提供します。
-
-### 従来のECSデプロイの課題
-
-- 複数のAWS CLIコマンドを実行する必要がある
-- タスク定義のJSONファイルを手動で管理する必要がある
-- 環境ごとに異なる設定を管理するのが難しい
-- デプロイの進行状況を監視するのが難しい
-- 複数環境間での設定の再利用が困難
-
-### ecspressoによる解決策
-
-- 単一のコマンドでデプロイプロセス全体を自動化
-- タスク定義とサービス定義をコードとして管理
-- テンプレート機能による環境変数の置換
-- デプロイの進行状況をリアルタイムで監視
-- Jsonnetによる柔軟な設定管理
-- プラグインシステムによる拡張性
-
-## デプロイワークフロー
+1. **初期化**: 既存のECSサービスから設定ファイルを作成
+2. **設定**: タスク定義とサービス定義をカスタマイズ
+3. **デプロイ**: 新しいタスク定義を登録し、サービスを更新
+4. **監視**: サービスの状態を確認し、ログを監視
 
 ```mermaid
 sequenceDiagram
-    participant User as ユーザー
-    participant Ecspresso as ecspresso
-    participant ECS as Amazon ECS
-    participant CD as AWS CodeDeploy
-    
-    User->>Ecspresso: ecspresso deploy
-    alt 通常のECSデプロイ
-        Ecspresso->>ECS: タスク定義の登録
-        ECS-->>Ecspresso: タスク定義ARN
-        Ecspresso->>ECS: サービスの更新
-        ECS-->>Ecspresso: サービス更新開始
-        Ecspresso->>ECS: デプロイ状態の監視
-        ECS-->>Ecspresso: デプロイ完了
-    else CodeDeployを使用したBlue/Greenデプロイ
-        Ecspresso->>ECS: タスク定義の登録
-        ECS-->>Ecspresso: タスク定義ARN
-        Ecspresso->>CD: デプロイメントの作成
-        CD-->>Ecspresso: デプロイメントID
-        Ecspresso->>CD: デプロイ状態の監視
-        CD-->>Ecspresso: デプロイ完了
-    end
-    Ecspresso-->>User: デプロイ完了
+  participant User as ユーザー
+  participant Ecspresso as ecspresso
+  participant ECS as AWS ECS
+  
+  User->>Ecspresso: init
+  Ecspresso->>ECS: サービス情報取得
+  ECS-->>Ecspresso: サービス情報
+  Ecspresso-->>User: 設定ファイル作成
+  
+  User->>Ecspresso: deploy
+  Ecspresso->>ECS: タスク定義登録
+  ECS-->>Ecspresso: タスク定義ARN
+  Ecspresso->>ECS: サービス更新
+  ECS-->>Ecspresso: 更新状態
+  Ecspresso-->>User: デプロイ完了
 ```
-
-## ecspressoの特徴
-
-### シンプルな設定
-
-ecspressoは、YAML、JSON、またはJsonnet形式の設定ファイルを使用します。Jsonnet形式のサポートにより、より柔軟で再利用可能な設定が可能になりました。
-
-```yaml
-# ecspresso.yml の例
-region: ap-northeast-1
-cluster: default
-service: myservice
-service_definition: ecs-service-def.json
-task_definition: ecs-task-def.json
-timeout: 10m
-plugins:
-  - name: tfstate
-    config:
-      url: s3://my-bucket/terraform.tfstate
-```
-
-### 柔軟なデプロイオプション
-
-- ローリングデプロイ（ECSのデフォルト）
-- Blue/Greenデプロイ（AWS CodeDeployと連携）
-- タスク定義の更新のみ
-- サービス設定の更新のみ
-- 強制的な新しいデプロイメント
-- デプロイ完了待機オプション（`--wait-until`）
-- Auto Scalingの一時停止と再開
-
-### 豊富なコマンド
-
-ecspressoは、デプロイだけでなく、タスクの実行、サービスの状態確認、タスク定義の差分表示など、多くのコマンドを提供しています。主なコマンドには以下があります：
-
-- `deploy`: サービスのデプロイ
-- `status`: サービスの状態確認
-- `rollback`: 以前のタスク定義にロールバック
-- `diff`: タスク定義とサービス定義の差分表示
-- `run`: タスクの実行
-- `verify`: リソースの検証
-- `tasks`: タスクの一覧表示と管理
-- `exec`: タスク上でのコマンド実行
-
-## v1とv2の違い
-
-ecspresso v2では、いくつかの破壊的変更と機能強化が行われています。主な変更点は以下の通りです：
-
-### 破壊的変更
-
-- `create`コマンドの廃止（`deploy`コマンドでサービスを作成可能）
-- `rollback --deregister-task-definition`がデフォルトでtrue
-- `render`コマンドがフラグではなく引数を受け付ける
-- `verify`コマンドがIAMロールをexecutionRoleにロールバックしない
-- `diff --unified`がデフォルトでtrue
-- ログメッセージの出力形式の変更
-- 設定ファイルの`filter_command`が非推奨（環境変数`ECSPRESSO_FILTER_COMMAND`を使用）
-- CodeDeployを使用する場合、`deploy`コマンドはデプロイメントの完了を待つ（v1では開始時に終了）
-
-### 機能強化
-
-- 設定ファイルでCodeDeployのアプリケーション名とデプロイメントグループ名を指定可能
-- 設定ファイルがJsonnet形式をサポート
-- `render`コマンドが`--jsonnet`フラグをサポート
-- CodeDeployでのデプロイ中にプログレスバーを表示
-- `verify`コマンドがコンテナイメージプラットフォームを検証
-- 複数のtfstateサポート（プレフィックスを使用）
-- SSMパラメータストアプラグインの追加
-- ECS Service Connectのサポート
-- 外部プラグインのサポート
-- JSONフォーマットのAppSpecサポート
-- カラー出力の無効化オプション
-- 外部diffコマンドのサポート
-- 設定ファイルでの無視タグの指定
-- Fargate Spotのサポート
-- VPC Latticeのサポート
-- EBSボリュームのサポート
-
-## 主な機能
-
-- ECSサービスのデプロイ管理
-- タスク定義の登録と管理
-- Blue/Greenデプロイのサポート（AWS CodeDeployと連携）
-- ロールバック機能
-- タスクの実行と管理
-- テンプレート機能による環境変数の置換
-- Jsonnetサポートによる柔軟な設定
-- 外部プラグインのサポート
-- AWS Secrets ManagerとSSMパラメータストアの統合
-- ECS Service Connectのサポート
-
-## アーキテクチャ概要
-
-```mermaid
-graph TD
-    A[ecspresso CLI] --> B[AWS SDK]
-    B --> C[Amazon ECS]
-    B --> D[AWS CodeDeploy]
-    B --> E[AWS CloudWatch]
-    B --> F[AWS Secrets Manager]
-    B --> G[AWS SSM]
-    C --> H[ECSサービス]
-    C --> I[タスク定義]
-```
-
-## ecspressoが解決する課題
-
-Amazon ECSでのデプロイは、タスク定義の登録、サービスの更新、デプロイの監視など、複数のステップが必要です。ecspressoはこれらのステップを自動化し、一貫性のあるデプロイプロセスを提供します。
-
-### 従来のECSデプロイの課題
-
-- 複数のAWS CLIコマンドを実行する必要がある
-- タスク定義のJSONファイルを手動で管理する必要がある
-- 環境ごとに異なる設定を管理するのが難しい
-- デプロイの進行状況を監視するのが難しい
-
-### ecspressoによる解決策
-
-- 単一のコマンドでデプロイプロセス全体を自動化
-- タスク定義とサービス定義をコードとして管理
-- テンプレート機能による環境変数の置換
-- デプロイの進行状況をリアルタイムで監視
-- Jsonnetによる柔軟な設定管理
-
-## ecspressoの特徴
-
-### シンプルな設定
-
-ecspressoは、YAML、JSON、またはJsonnet形式の設定ファイルを使用します。Jsonnet形式のサポートにより、より柔軟で再利用可能な設定が可能になりました。
-
-### 柔軟なデプロイオプション
-
-- ローリングデプロイ（ECSのデフォルト）
-- Blue/Greenデプロイ（AWS CodeDeployと連携）
-- タスク定義の更新のみ
-- サービス設定の更新のみ
-- 強制的な新しいデプロイメント
-- デプロイ完了待機オプション（`--wait-until`）
-
-### 豊富なコマンド
-
-ecspressoは、デプロイだけでなく、タスクの実行、サービスの状態確認、タスク定義の差分表示など、多くのコマンドを提供しています。
-
-## v1とv2の違い
-
-ecspresso v2では、いくつかの破壊的変更と機能強化が行われています。主な変更点は以下の通りです：
-
-### 破壊的変更
-
-- `create`コマンドの廃止（`deploy`コマンドでサービスを作成可能）
-- `rollback --deregister-task-definition`がデフォルトでtrue
-- `render`コマンドがフラグではなく引数を受け付ける
-- `verify`コマンドがIAMロールをexecutionRoleにロールバックしない
-- `diff --unified`がデフォルトでtrue
-- ログメッセージの出力形式の変更
-- 設定ファイルの`filter_command`が非推奨（環境変数`ECSPRESSO_FILTER_COMMAND`を使用）
-- CodeDeployを使用する場合、`deploy`コマンドはデプロイメントの完了を待つ（v1では開始時に終了）
-
-### 機能強化
-
-- 設定ファイルでCodeDeployのアプリケーション名とデプロイメントグループ名を指定可能
-- 設定ファイルがJsonnet形式をサポート
-- `render`コマンドが`--jsonnet`フラグをサポート
-- CodeDeployでのデプロイ中にプログレスバーを表示
-- `verify`コマンドがコンテナイメージプラットフォームを検証
-- 複数のtfstateサポート（プレフィックスを使用）
-- SSMパラメータストアプラグインの追加
-- ECS Service Connectのサポート
-- 外部プラグインのサポート
-- JSONフォーマットのAppSpecサポート
-- カラー出力の無効化オプション
-- 外部diffコマンドのサポート
-- 設定ファイルでの無視タグの指定
