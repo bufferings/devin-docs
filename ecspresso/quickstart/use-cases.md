@@ -8,107 +8,97 @@ nav_order: 2
 
 # よくあるユースケース
 
-ecspressoの一般的なユースケースを紹介します。
+ここでは、ecspressoでよく行われる操作パターンを紹介します。
 
-## 1. 既存サービスの管理
+## Blue/Greenデプロイ
 
-既に稼働しているECSサービスをecspressoで管理する場合：
+CodeDeployを使用したBlue/Greenデプロイを行います。
 
 ```console
-# 設定ファイルの初期化
-$ ecspresso init --region ap-northeast-1 --cluster default --service myservice
+# AppSpecの生成
+$ ecspresso appspec > appspec.yaml
 
-# 設定ファイルをバージョン管理に追加
-$ git add ecspresso.yml ecs-service-def.json ecs-task-def.json
-$ git commit -m "Add ecspresso configuration"
-
-# 以降はecspressoでデプロイ
+# デプロイの実行
 $ ecspresso deploy
 ```
 
-## 2. Blue/Greenデプロイ
-
-AWS CodeDeployを使用したBlue/Greenデプロイを行う場合：
-
-```console
-# サービス定義にCodeDeployの設定を追加
-# ecs-service-def.jsonを編集し、deploymentControllerを設定
-
-# デプロイ実行
-$ ecspresso deploy
+```mermaid
+sequenceDiagram
+    participant User as ユーザー
+    participant E as ecspresso
+    participant CD as AWS CodeDeploy
+    participant ECS as AWS ECS
+    
+    User->>E: appspecの生成
+    E-->>User: appspec.yaml
+    User->>E: deploy実行
+    E->>CD: デプロイ開始
+    CD->>ECS: タスク定義登録
+    CD->>ECS: 新バージョンのタスク起動
+    CD->>ECS: トラフィック転送
+    CD->>ECS: 古いタスク停止
+    CD-->>E: デプロイ完了
+    E-->>User: 完了報告
 ```
 
-サービス定義の例：
-```json
-{
-  "deploymentController": {
-    "type": "CODE_DEPLOY"
-  },
-  "loadBalancers": [
-    {
-      "containerName": "app",
-      "containerPort": 80,
-      "targetGroupArn": "arn:aws:elasticloadbalancing:ap-northeast-1:123456789012:targetgroup/blue/1234567890123456"
-    }
-  ]
-}
-```
+## 環境変数を使った複数環境へのデプロイ
 
-## 3. タスクの実行とログ監視
-
-一時的なタスクを実行し、ログを監視する場合：
+環境変数を使用して異なる環境に対応した設定を行います。
 
 ```console
-# タスク実行とログ監視
-$ ecspresso run --watch-container=app
-```
-
-## 4. サービスのスケーリング
-
-サービスのタスク数を変更する場合：
-
-```console
-# タスク数を5に変更
-$ ecspresso scale --tasks=5
-```
-
-## 5. 環境変数を使った複数環境対応
-
-環境ごとに異なる設定を使用する場合：
-
-```console
-# 開発環境用の環境変数ファイル
-$ cat .env.dev
-CLUSTER=dev-cluster
-SERVICE=myservice-dev
-
-# 本番環境用の環境変数ファイル
-$ cat .env.prod
-CLUSTER=prod-cluster
-SERVICE=myservice-prod
-
 # 開発環境へのデプロイ
-$ ecspresso --envfile=.env.dev deploy
+$ ENV=dev ecspresso deploy --envfile .env.dev
 
 # 本番環境へのデプロイ
-$ ecspresso --envfile=.env.prod deploy
+$ ENV=prod ecspresso deploy --envfile .env.prod
 ```
 
-## 6. CI/CDパイプラインでの利用
+## サービスのスケーリング
 
-GitHub Actionsでの利用例：
+`scale`コマンドを使用してサービスのタスク数を調整します。
 
-```yaml
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: kayac/ecspresso@v2
-        with:
-          command: deploy
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ap-northeast-1
+```console
+# タスク数を5に設定
+$ ecspresso scale --tasks=5
+
+# Auto Scalingの設定
+$ ecspresso deploy --suspend-auto-scaling=false --auto-scaling-min=2 --auto-scaling-max=10
+```
+
+## タスク実行時のオーバーライド
+
+`run`コマンドでタスク実行時にコンテナ設定をオーバーライドします。
+
+```console
+$ ecspresso run --overrides='{"containerOverrides":[{"name":"app","command":["migrate"]}]}'
+```
+
+## サービス検証
+
+`verify`コマンドを使用して、サービス設定の検証を行います。
+
+```console
+$ ecspresso verify
+```
+
+## リソース間の差分確認
+
+`diff`コマンドで現在のECS設定との差分を確認します。
+
+```console
+$ ecspresso diff
+```
+
+## ロールバック戦略
+
+```mermaid
+graph TD
+    A[問題検出] --> B{ロールバック判断}
+    B -->|タスク定義のみ| C[ecspresso rollback --task-definition-only]
+    B -->|サービス全体| D[ecspresso rollback]
+    C --> E[検証]
+    D --> E
+    E -->|問題解決| F[完了]
+    E -->|問題継続| G[さらに前のバージョンへ]
+    G --> B
 ```

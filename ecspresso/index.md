@@ -21,17 +21,18 @@ ecspressoは、Amazon ECSサービスとタスクを簡単に管理するため�
 - **リソース検証**: サービス設定の検証とトラブルシューティング
 - **Jsonnetサポート**: 高度な設定管理
 
-## クイックスタート
+## アーキテクチャ図
 
-```console
-# インストール（macOSの場合）
-$ brew install kayac/tap/ecspresso
-
-# 既存のサービスから設定を初期化
-$ ecspresso init --region ap-northeast-1 --cluster default --service myservice
-
-# サービスをデプロイ
-$ ecspresso deploy
+```mermaid
+graph TD
+    A[ecspresso] --> B[AWS ECS]
+    A --> C[AWS CodeDeploy]
+    A --> D[CloudWatch Logs]
+    A --> E[AWS SecretsManager]
+    A --> F[AWS SSM]
+    B --> G[ECSサービス]
+    B --> H[ECSタスク]
+    C --> I[Blue/Greenデプロイ]
 ```
 
 詳細については、各セクションを参照してください。
