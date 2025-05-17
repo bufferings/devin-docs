@@ -8,6 +8,104 @@ nav_order: 1
 
 # デプロイ関連コマンド
 
+## deploy
+
+`deploy`コマンドは、タスク定義を登録し、ECSサービスを更新します。
+
+```
+ecspresso deploy [オプション]
+```
+
+### オプション
+
+| オプション | 説明 | デフォルト |
+|----------|------|----------|
+| `--dry-run` | 実際の変更を行わずに動作確認 | false |
+| `--tasks N` | タスクの希望数 | -1（変更なし） |
+| `--skip-task-definition` | 新しいタスク定義の登録をスキップ | false |
+| `--revision N` | `--skip-task-definition`使用時に実行するタスク定義のリビジョン | 0 |
+| `--force-new-deployment` | サービスの強制的な新規デプロイメント | false |
+| `--no-wait` | サービスが安定するまで待機しない | false |
+| `--wait-until STRING` | `stable`（サービスが安定するまで）または`deployed`（デプロイメントが完了するまで）のどちらを待機するか | stable |
+| `--suspend-auto-scaling` | ECSサービスに関連付けられた自動スケーリングを一時停止 | - |
+| `--resume-auto-scaling` | ECSサービスに関連付けられた自動スケーリングを再開 | - |
+| `--auto-scaling-min N` | ECSサービスに関連付けられた自動スケーリングの最小容量を設定 | - |
+| `--auto-scaling-max N` | ECSサービスに関連付けられた自動スケーリングの最大容量を設定 | - |
+| `--rollback-events STRING` | 指定されたイベントが発生した場合にロールバック（DEPLOYMENT_FAILURE,DEPLOYMENT_STOP_ON_ALARMなど）。CodeDeployのみ | - |
+| `--no-update-service` | サービス定義によるサービス属性の更新を行わない | false |
+| `--latest-task-definition` | 新しいタスク定義を登録せずに最新のタスク定義でデプロイ | false |
+
+### デプロイフロー
+
+```mermaid
+flowchart TD
+    A[開始] --> B{タスク定義をスキップ?}
+    B -->|Yes| C[既存のタスク定義を使用]
+    B -->|No| D[新しいタスク定義を登録]
+    C --> E{CodeDeploy?}
+    D --> E
+    E -->|Yes| F[CodeDeployでデプロイ]
+    E -->|No| G[ECSでローリングデプロイ]
+    F --> H{待機する?}
+    G --> H
+    H -->|Yes| I[サービスが安定するまで待機]
+    H -->|No| J[終了]
+    I --> J
+```
+
+## rollback
+
+`rollback`コマンドは、サービスを以前のタスク定義にロールバックします。
+
+```
+ecspresso rollback [オプション]
+```
+
+### オプション
+
+| オプション | 説明 | デフォルト |
+|----------|------|----------|
+| `--dry-run` | 実際の変更を行わずに動作確認 | false |
+| `--tasks N` | タスクの希望数 | -1（変更なし） |
+| `--deregister` | ロールバック後に現在のタスク定義を登録解除 | false |
+| `--wait` | サービスが安定するまで待機 | true |
+| `--wait-until STRING` | `stable`（サービスが安定するまで）または`deployed`（デプロイメントが完了するまで）のどちらを待機するか | stable |
+
+## refresh
+
+`refresh`コマンドは、サービスを更新（リフレッシュ）します。新しいタスク定義は登録せず、強制的に新規デプロイメントを行います。
+
+```
+ecspresso refresh [オプション]
+```
+
+### オプション
+
+| オプション | 説明 | デフォルト |
+|----------|------|----------|
+| `--dry-run` | 実際の変更を行わずに動作確認 | false |
+| `--wait` | サービスが安定するまで待機 | true |
+
+## scale
+
+`scale`コマンドは、サービスのタスク数を変更します。
+
+```
+ecspresso scale --tasks N [オプション]
+```
+
+### オプション
+
+| オプション | 説明 | デフォルト |
+|----------|------|----------|
+| `--dry-run` | 実際の変更を行わずに動作確認 | false |
+| `--tasks N` | 必須：タスクの希望数 | - |
+| `--wait` | サービスが安定するまで待機 | true |
+| `--auto-scaling-min N` | 自動スケーリングの最小容量を設定 | - |
+| `--auto-scaling-max N` | 自動スケーリングの最大容量を設定 | - |
+| `--suspend-auto-scaling` | 自動スケーリングを一時停止 | - |
+| `--resume-auto-scaling` | 自動スケーリングを再開 | - |
+
 ecspressoのデプロイに関連するコマンドを説明します。
 
 ## deploy

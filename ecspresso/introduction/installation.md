@@ -8,6 +8,79 @@ nav_order: 2
 
 # インストール方法
 
+ecspressoは、複数の方法でインストールできます。
+
+## Homebrewを使用する（macOSとLinux）
+
+```console
+$ brew install kayac/tap/ecspresso
+```
+
+## asdfを使用する（macOSとLinux）
+
+[asdf](https://asdf-vm.com/)はバージョン管理ツールです。
+
+```console
+$ asdf plugin add ecspresso
+# または
+$ asdf plugin add ecspresso https://github.com/kayac/asdf-ecspresso.git
+
+$ asdf install ecspresso 2.5.0
+$ asdf global ecspresso 2.5.0
+```
+
+## aquaを使用する（macOSとLinux）
+
+[aqua](https://aquaproj.github.io/)はCLIバージョン管理ツールです。
+
+```console
+$ aqua g -i kayac/ecspresso
+```
+
+## バイナリパッケージ
+
+[GitHubのリリースページ](https://github.com/kayac/ecspresso/releases)から直接バイナリをダウンロードできます。
+
+## CircleCI Orbs
+
+CircleCIパイプラインで使用する場合：
+
+```yaml
+version: 2.1
+orbs:
+  ecspresso: fujiwara/ecspresso@2.0.4
+jobs:
+  install:
+    steps:
+      - checkout
+      - ecspresso/install:
+          version: v2.5.0 # または latest
+          # version-file: .ecspresso-version
+          os: linux # または windows または darwin
+          arch: amd64 # または arm64
+      - run:
+          command: |
+            ecspresso version
+```
+
+## GitHub Actions
+
+GitHub Actionsで使用する場合：
+
+```yml
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: kayac/ecspresso@v2
+        with:
+          version: v2.5.0 # または latest
+          # version-file: .ecspresso-version
+      - run: |
+          ecspresso deploy --config ecspresso.yml
+```
+
 ecspressoは複数の方法でインストールできます。
 
 ## Homebrew
