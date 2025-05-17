@@ -12,7 +12,7 @@ ecspressoのタスク管理に関連するコマンドを説明します。
 
 ## tasks
 
-`tasks`コマンドは、サービスによって実行されているタスクやタスク定義と同じファミリーを持つタスクを一覧表示します。
+`tasks`コマンドは、サービスによって実行されているタスクやタスク定義と同じファミリーを持つタスクを一覧表示します。v2では、タスクの詳細情報の表示と検索機能が強化されました。
 
 ```console
 $ ecspresso tasks [オプション]
@@ -28,6 +28,8 @@ $ ecspresso tasks [オプション]
 | `--stop` | タスクを停止 |
 | `--force` | 確認なしでタスクを停止 |
 | `--trace` | タスクをトレース |
+| `--container` | 特定のコンテナを指定（v2で追加） |
+| `--filter` | タスクのフィルタリング条件（v2で追加） |
 
 ### 使用例
 
@@ -48,7 +50,7 @@ $ ecspresso tasks --stop
 
 ## exec
 
-`exec`コマンドは、タスク上でコマンドを実行します。このコマンドを使用するには、PATHに[session-manager-plugin](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html)が必要です。
+`exec`コマンドは、タスク上でコマンドを実行します。このコマンドを使用するには、PATHに[session-manager-plugin](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html)が必要です。v2では、複数のポートフォワーディングと対話的なコンテナ選択がサポートされました。
 
 ```console
 $ ecspresso exec [オプション]
@@ -65,7 +67,9 @@ $ ecspresso exec [オプション]
 | `--local-port` | ローカルポート番号 |
 | `--port` | リモートポート番号（ポートフォワーディングに必要） |
 | `--host` | リモートホスト（ポートフォワーディングに必要） |
-| `-L` | local-port:host:portの短縮表現 |
+| `-L` | local-port:host:portの短縮表現（v2では複数指定可能） |
+| `--interactive` | 対話的にコンテナを選択（v2で追加） |
+| `--timeout` | コマンド実行のタイムアウト（v2で追加） |
 
 ### 使用例
 
