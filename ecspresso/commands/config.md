@@ -1,202 +1,113 @@
 ---
 layout: default
-title: 設定関連コマンド
+title: 設定・初期化コマンド
 parent: コマンドリファレンス
 grand_parent: ecspresso
 nav_order: 3
 ---
 
-# 設定関連コマンド
+# 設定・初期化コマンド
 
 ## init
 
-`init`コマンドは、既存のECSサービスから設定ファイルを作成します。
+既存のECSサービスから設定ファイルを作成します。
 
 ```
-Usage: ecspresso init [options]
+Usage: ecspresso init [flags]
 
-Options:
-  --region=REGION                 AWSリージョン
-  --cluster=CLUSTER               ECSクラスター名
-  --service=SERVICE               ECSサービス名
-  --config=CONFIG                 設定ファイル名 (デフォルト: ecspresso.yml)
-  --task-definition=ARN           タスク定義ARN
-  --update-task-definition        タスク定義を更新
-  --update-service-definition     サービス定義を更新
-  --no-load-task-definition       タスク定義を読み込まない
-  --no-load-service-definition    サービス定義を読み込まない
-  --output-task-definition=FILE   タスク定義の出力先ファイル名
-  --output-service-definition=FILE サービス定義の出力先ファイル名
-  --force                         既存の設定ファイルを上書き
+Flags:
+  --region=REGION              AWSリージョン
+  --cluster=CLUSTER            ECSクラスター名
+  --service=SERVICE            ECSサービス名
+  --task-definition=ARN        タスク定義ARN（サービスが存在しない場合）
+  --config=FILE                設定ファイル名（デフォルト：ecspresso.yml）
+  --service-definition=FILE    サービス定義ファイル名（デフォルト：ecs-service-def.json）
+  --task-definition-path=FILE  タスク定義ファイル名（デフォルト：ecs-task-def.json）
+  --skip-task-definition       タスク定義の取得をスキップ
+  --update                     既存の設定ファイルを更新
+  --no-save-task-definition    タスク定義ファイルを保存しない
+  --output-format=FORMAT       出力フォーマット（json, yaml, jsonnet）（デフォルト：json）
 ```
 
-### 使用例
+### 例
 
+基本的な初期化：
 ```console
-# 基本的な初期化
 $ ecspresso init --region ap-northeast-1 --cluster default --service myservice
-
-# 設定ファイル名を指定して初期化
-$ ecspresso init --region ap-northeast-1 --cluster default --service myservice --config myapp.yml
-
-# タスク定義のみを読み込む
-$ ecspresso init --region ap-northeast-1 --cluster default --service myservice --no-load-service-definition
 ```
 
-## diff
-
-`diff`コマンドは、現在のサービスと設定ファイルの差分を表示します。
-
-```
-Usage: ecspresso diff [options]
-
-Options:
-  --config-only                   設定ファイルのみを表示
-  --task-definition=ARN           比較するタスク定義ARN
-  --task-def=FILE                 比較するタスク定義ファイル
-  --service-definition=ARN        比較するサービス定義ARN
-  --service-def=FILE              比較するサービス定義ファイル
-  --output=FORMAT                 出力形式 (text, json) (デフォルト: text)
-```
-
-### 使用例
-
+Jsonnet形式で出力：
 ```console
-# 現在のサービスと設定ファイルの差分を表示
-$ ecspresso diff
+$ ecspresso init --region ap-northeast-1 --cluster default --service myservice --output-format=jsonnet
+```
 
-# JSON形式で差分を表示
-$ ecspresso diff --output=json
-
-# 特定のタスク定義ファイルと比較
-$ ecspresso diff --task-def=new-task-def.json
+既存の設定を更新：
+```console
+$ ecspresso init --update
 ```
 
 ## render
 
-`render`コマンドは、タスク定義とサービス定義をレンダリングします。
+設定ファイル、サービス定義、またはタスク定義ファイルを標準出力に出力します。
 
 ```
-Usage: ecspresso render [options]
+Usage: ecspresso render [flags]
 
-Options:
-  --task-def=FILE                 レンダリングするタスク定義ファイル
-  --service-def=FILE              レンダリングするサービス定義ファイル
+Flags:
+  --config                設定ファイルを出力
+  --service-definition    サービス定義を出力
+  --task-definition      タスク定義を出力
+  --output-format=FORMAT 出力フォーマット（json, yaml, jsonnet）（デフォルト：json）
 ```
 
-### 使用例
+### 例
 
+タスク定義をYAML形式で出力：
 ```console
-# タスク定義とサービス定義をレンダリング
-$ ecspresso render
+$ ecspresso render --task-definition --output-format=yaml
+```
 
-# 特定のタスク定義ファイルをレンダリング
-$ ecspresso render --task-def=my-task-def.json
+サービス定義を出力：
+```console
+$ ecspresso render --service-definition
 ```
 
 ## verify
 
-`verify`コマンドは、タスク定義とサービス定義を検証します。
+設定内のリソースを検証します。
 
 ```
-Usage: ecspresso verify [options]
+Usage: ecspresso verify [flags]
 
-Options:
-  --task-def=FILE                 検証するタスク定義ファイル
-  --service-def=FILE              検証するサービス定義ファイル
+Flags:
+  --[no-]get-secrets    ParameterStoreまたはSecretsManagerからシークレットを取得（デフォルト：true）
+  --[no-]put-logs       CloudWatchLogsにログを出力（デフォルト：true）
+  --[no-]cache          キャッシュを使用（デフォルト：true）
 ```
 
-### 使用例
+### 例
 
+リソース検証の実行：
 ```console
-# タスク定義とサービス定義を検証
 $ ecspresso verify
-
-# 特定のタスク定義ファイルを検証
-$ ecspresso verify --task-def=my-task-def.json
 ```
 
-## appspec
-
-`appspec`コマンドは、CodeDeployのAppSpecファイルを生成します。
-
-```
-Usage: ecspresso appspec [options]
-
-Options:
-  --task-def=FILE                 タスク定義ファイル
-  --output=FILE                   出力先ファイル名
-```
-
-### 使用例
-
+シークレット取得をスキップして検証：
 ```console
-# AppSpecファイルを生成
-$ ecspresso appspec
-
-# 出力先を指定してAppSpecファイルを生成
-$ ecspresso appspec --output=appspec.yaml
+$ ecspresso verify --no-get-secrets
 ```
 
-## config
+### 検証フロー
 
-`config`コマンドは、現在の設定を表示します。
-
+```mermaid
+graph TD
+    A[開始] --> B[タスク定義の検証]
+    B --> C[サービス定義の検証]
+    C --> D[クラスターの検証]
+    D --> E[ロールの検証]
+    E --> F[イメージの検証]
+    F --> G[ログ設定の検証]
+    G --> H[シークレットの検証]
+    H --> I[環境ファイルの検証]
+    I --> J[完了]
 ```
-Usage: ecspresso config [options]
-
-Options:
-  --output=FORMAT                 出力形式 (text, json) (デフォルト: text)
-```
-
-### 使用例
-
-```console
-# 現在の設定を表示
-$ ecspresso config
-
-# JSON形式で設定を表示
-$ ecspresso config --output=json
-```
-
-## version
-
-`version`コマンドは、ecspressoのバージョンを表示します。
-
-```
-Usage: ecspresso version
-```
-
-### 使用例
-
-```console
-# バージョンを表示
-$ ecspresso version
-```
-
-## 設定ファイル構造
-
-ecspressoの設定ファイル（`ecspresso.yml`）の基本構造は以下の通りです：
-
-```yaml
-region: ap-northeast-1
-cluster: default
-service: myservice
-task_definition: ecs-task-def.json
-service_definition: ecs-service-def.json
-timeout: 10m
-plugins:
-  - name: tfstate
-    config:
-      path: terraform.tfstate
-```
-
-### 主な設定項目
-
-- **region**: AWSリージョン
-- **cluster**: ECSクラスター名
-- **service**: ECSサービス名
-- **task_definition**: タスク定義ファイルのパス
-- **service_definition**: サービス定義ファイルのパス
-- **timeout**: タイムアウト時間
-- **plugins**: 使用するプラグインの設定

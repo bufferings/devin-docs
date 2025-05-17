@@ -8,67 +8,70 @@ nav_order: 1
 
 # 基本的な使い方
 
-ecspressoを使い始めるための基本的な手順を説明します。
+ここでは、ecspressoを使用して基本的なECSサービス管理を行う方法を説明します。
 
 ## 設定ファイルの初期化
 
-既存のECSサービスから設定ファイルを作成するには、`init`コマンドを使用します：
+既存のECSサービスから設定ファイルを作成します。
 
 ```console
-$ ecspresso init --region ap-northeast-1 --cluster default --service myservice
+$ ecspresso init --region ap-northeast-1 --cluster your-cluster --service your-service
 ```
 
-このコマンドは以下のファイルを生成します：
-- `ecspresso.yml`: ecspressoの設定ファイル
-- `ecs-service-def.json`: ECSサービス定義
-- `ecs-task-def.json`: ECSタスク定義
+これにより、カレントディレクトリに`ecspresso.yml`、`ecs-service-def.json`、`ecs-task-def.json`が作成されます。
 
 ## サービスのデプロイ
 
-サービスをデプロイするには、`deploy`コマンドを使用します：
+`deploy`コマンドを使用して、サービスをデプロイします。
 
 ```console
 $ ecspresso deploy
 ```
 
-このコマンドは、タスク定義を登録し、サービスを更新します。
-
-## サービスの状態確認
-
-サービスの状態を確認するには、`status`コマンドを使用します：
-
-```console
-$ ecspresso status
-```
-
-## タスクの実行
-
-一時的なタスクを実行するには、`run`コマンドを使用します：
-
-```console
-$ ecspresso run
-```
-
-## 設定の差分確認
-
-現在のサービスと設定ファイルの差分を確認するには、`diff`コマンドを使用します：
+デプロイ前に差分を確認したい場合は、`diff`コマンドを使用します。
 
 ```console
 $ ecspresso diff
 ```
 
-## 基本的なワークフロー
+## タスクの実行
 
-```mermaid
-graph LR
-  A[init] --> B[設定ファイル編集]
-  B --> C[diff]
-  C --> D[deploy]
-  D --> E[status]
+`run`コマンドを使用して、ワンタイムタスクを実行できます。
+
+```console
+$ ecspresso run
 ```
 
-1. `init`で設定ファイルを作成
-2. 必要に応じて設定ファイルを編集
-3. `diff`で変更内容を確認
-4. `deploy`でサービスを更新
-5. `status`でサービスの状態を確認
+特定のタスク定義を使用する場合：
+
+```console
+$ ecspresso run --task-def=custom-task-def.json
+```
+
+## サービスステータスの確認
+
+`status`コマンドを使用して、サービスの現在の状態を確認できます。
+
+```console
+$ ecspresso status
+```
+
+## サービスのロールバック
+
+問題が発生した場合、以前のバージョンにロールバックできます。
+
+```console
+$ ecspresso rollback
+```
+
+## 基本的なワークフロー図
+
+```mermaid
+graph TD
+    A[ecspresso init] --> B[設定ファイル編集]
+    B --> C[ecspresso diff]
+    C --> D[ecspresso deploy]
+    D --> E[ecspresso status]
+    E -->|問題発生| F[ecspresso rollback]
+    E -->|別のタスク実行| G[ecspresso run]
+```

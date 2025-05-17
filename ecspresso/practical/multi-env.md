@@ -1,213 +1,186 @@
 ---
 layout: default
-title: 複数環境の管理
+title: 複数環境での運用
 parent: 実践ガイド
 grand_parent: ecspresso
 nav_order: 2
 ---
 
-# 複数環境の管理
+# 複数環境での運用
 
-多くのプロジェクトでは、開発、ステージング、本番など複数の環境を管理する必要があります。ecspressoでは、環境変数とテンプレート機能を使用して、複数環境を効率的に管理できます。
-
-## 環境変数ファイルの活用
-
-ecspressoは、`--envfile`オプションを使用して環境変数ファイルを読み込むことができます。これにより、環境ごとに異なる設定を簡単に管理できます。
-
-### 環境変数ファイルの例
-
-```
-# .env.dev（開発環境）
-CLUSTER=dev-cluster
-SERVICE=myservice-dev
-DESIRED_COUNT=1
-IMAGE_TAG=latest
-
-# .env.stg（ステージング環境）
-CLUSTER=stg-cluster
-SERVICE=myservice-stg
-DESIRED_COUNT=2
-IMAGE_TAG=stable
-
-# .env.prod（本番環境）
-CLUSTER=prod-cluster
-SERVICE=myservice-prod
-DESIRED_COUNT=5
-IMAGE_TAG=release
-```
-
-### 環境変数ファイルの使用方法
-
-```console
-# 開発環境へのデプロイ
-$ ecspresso --envfile=.env.dev deploy
-
-# ステージング環境へのデプロイ
-$ ecspresso --envfile=.env.stg deploy
-
-# 本番環境へのデプロイ
-$ ecspresso --envfile=.env.prod deploy
-```
-
-## テンプレート機能の活用
-
-ecspressoは、タスク定義とサービス定義で環境変数を参照できます。これにより、環境ごとに異なる設定を一元管理できます。
-
-### タスク定義のテンプレート例
-
-```json
-{
-  "family": "${SERVICE}",
-  "containerDefinitions": [
-    {
-      "name": "app",
-      "image": "myapp:${IMAGE_TAG}",
-      "essential": true,
-      "portMappings": [
-        {
-          "containerPort": 80,
-          "hostPort": 80,
-          "protocol": "tcp"
-        }
-      ],
-      "environment": [
-        {
-          "name": "ENV",
-          "value": "${ENV:-dev}"
-        }
-      ],
-      "logConfiguration": {
-        "logDriver": "awslogs",
-        "options": {
-          "awslogs-group": "/ecs/${SERVICE}",
-          "awslogs-region": "${AWS_REGION}",
-          "awslogs-stream-prefix": "ecs"
-        }
-      }
-    }
-  ]
-}
-```
-
-### サービス定義のテンプレート例
-
-```json
-{
-  "cluster": "${CLUSTER}",
-  "serviceName": "${SERVICE}",
-  "desiredCount": ${DESIRED_COUNT},
-  "loadBalancers": [
-    {
-      "targetGroupArn": "${TARGET_GROUP_ARN}",
-      "containerName": "app",
-      "containerPort": 80
-    }
-  ],
-  "networkConfiguration": {
-    "awsvpcConfiguration": {
-      "subnets": ${SUBNETS},
-      "securityGroups": ${SECURITY_GROUPS},
-      "assignPublicIp": "DISABLED"
-    }
-  }
-}
-```
+ecspressoを使用して複数の環境（開発、ステージング、本番など）を管理する方法を説明します。
 
 ## 環境ごとの設定ファイル
 
-複雑なプロジェクトでは、環境ごとに異なる設定ファイルを使用することもできます。
+複数環境を管理するための一般的なアプローチは、環境ごとに設定ファイルを分けることです。
 
 ### ディレクトリ構造の例
 
 ```
-.
-├── ecspresso.yml
-├── environments/
+project/
+├── ecs/
+│   ├── common/
+│   │   ├── task-def-template.json
+│   │   └── service-def-template.json
 │   ├── dev/
 │   │   ├── ecspresso.yml
+│   │   ├── ecs-service-def.json
 │   │   ├── ecs-task-def.json
-│   │   └── ecs-service-def.json
-│   ├── stg/
+│   │   └── .env.dev
+│   ├── staging/
 │   │   ├── ecspresso.yml
+│   │   ├── ecs-service-def.json
 │   │   ├── ecs-task-def.json
-│   │   └── ecs-service-def.json
+│   │   └── .env.staging
 │   └── prod/
 │       ├── ecspresso.yml
+│       ├── ecs-service-def.json
 │       ├── ecs-task-def.json
-│       └── ecs-service-def.json
-└── scripts/
-    └── deploy.sh
+│       └── .env.prod
 ```
 
-### デプロイスクリプトの例
+## 環境変数を使用した設定
 
-```bash
-#!/bin/bash
-# deploy.sh
+環境変数を使用して、同じ設定ファイルで異なる環境を管理することもできます。
 
-ENV=$1
-if [ -z "$ENV" ]; then
-  echo "Usage: $0 <env>"
-  exit 1
-fi
+### 環境ファイルの例
 
-cd environments/$ENV
-ecspresso deploy
+`.env.dev`:
+```
+CLUSTER_NAME=dev-cluster
+SERVICE_NAME=myapp-dev
+DESIRED_COUNT=1
+MIN_CAPACITY=1
+MAX_CAPACITY=3
 ```
 
-使用方法：
-
-```console
-$ ./scripts/deploy.sh dev   # 開発環境へのデプロイ
-$ ./scripts/deploy.sh stg   # ステージング環境へのデプロイ
-$ ./scripts/deploy.sh prod  # 本番環境へのデプロイ
+`.env.prod`:
+```
+CLUSTER_NAME=prod-cluster
+SERVICE_NAME=myapp-prod
+DESIRED_COUNT=3
+MIN_CAPACITY=2
+MAX_CAPACITY=10
 ```
 
-## 環境管理のベストプラクティス
-
-### 1. 環境変数の階層化
-
-共通の設定と環境固有の設定を分離します：
-
-```
-# .env.common（共通設定）
-AWS_REGION=ap-northeast-1
-LOG_LEVEL=info
-
-# .env.dev（開発環境固有の設定）
-CLUSTER=dev-cluster
-SERVICE=myservice-dev
-```
-
-使用方法：
-
-```console
-$ ecspresso --envfile=.env.common,.env.dev deploy
-```
-
-### 2. 環境変数のデフォルト値
-
-テンプレート内でデフォルト値を設定します：
+### 環境変数を使用したタスク定義
 
 ```json
 {
-  "environment": [
+  "family": "${SERVICE_NAME}",
+  "containerDefinitions": [
     {
-      "name": "LOG_LEVEL",
-      "value": "${LOG_LEVEL:-info}"
+      "name": "app",
+      "image": "${ECR_REPOSITORY_URL}:${IMAGE_TAG}",
+      "environment": [
+        {
+          "name": "ENV",
+          "value": "${ENV}"
+        }
+      ]
     }
   ]
 }
 ```
 
-### 3. 環境管理フロー
+## Jsonnetを使用した設定
+
+Jsonnetを使用すると、より柔軟な設定管理が可能になります。
+
+### Jsonnetの例
+
+`task-def.jsonnet`:
+```jsonnet
+local env = std.extVar('env');
+local config = import 'config/' + env + '.libsonnet';
+
+{
+  family: config.serviceName,
+  containerDefinitions: [
+    {
+      name: 'app',
+      image: config.image,
+      cpu: config.cpu,
+      memory: config.memory,
+      environment: [
+        {
+          name: 'ENV',
+          value: env
+        }
+      ]
+    }
+  ]
+}
+```
+
+`config/dev.libsonnet`:
+```jsonnet
+{
+  serviceName: 'myapp-dev',
+  image: 'myapp:dev',
+  cpu: 256,
+  memory: 512
+}
+```
+
+`config/prod.libsonnet`:
+```jsonnet
+{
+  serviceName: 'myapp-prod',
+  image: 'myapp:latest',
+  cpu: 1024,
+  memory: 2048
+}
+```
+
+## 環境ごとのデプロイコマンド
+
+```bash
+# 開発環境へのデプロイ
+$ ENV=dev ecspresso --config=./ecs/dev/ecspresso.yml --envfile=./ecs/dev/.env.dev deploy
+
+# 本番環境へのデプロイ
+$ ENV=prod ecspresso --config=./ecs/prod/ecspresso.yml --envfile=./ecs/prod/.env.prod deploy
+```
+
+## 環境間の設定差分管理
 
 ```mermaid
 graph TD
-  A[共通設定] --> B[環境固有設定]
-  B --> C[テンプレート処理]
-  C --> D[環境ごとのデプロイ]
-  D --> E1[開発環境]
-  D --> E2[ステージング環境]
-  D --> E3[本番環境]
+    A[共通設定] --> B[開発環境設定]
+    A --> C[ステージング環境設定]
+    A --> D[本番環境設定]
+    B --> E[開発環境デプロイ]
+    C --> F[ステージング環境デプロイ]
+    D --> G[本番環境デプロイ]
+```
+
+## 環境ごとのリソース命名規則
+
+一貫性のある命名規則を使用することで、複数環境の管理が容易になります。
+
+```
+# クラスター名
+<project>-<env>-cluster
+
+# サービス名
+<project>-<env>-<service>
+
+# タスク定義ファミリー
+<project>-<env>-<service>
+
+# ロググループ
+/ecs/<project>/<env>/<service>
+```
+
+## 環境ごとのIAMロール管理
+
+環境ごとに異なるIAMロールを使用することで、権限を適切に分離できます。
+
+```yaml
+# 開発環境のタスク実行ロール
+TaskExecutionRole: arn:aws:iam::123456789012:role/dev-task-execution-role
+
+# 本番環境のタスク実行ロール
+TaskExecutionRole: arn:aws:iam::123456789012:role/prod-task-execution-role
 ```
