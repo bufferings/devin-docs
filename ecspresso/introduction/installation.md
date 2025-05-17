@@ -46,7 +46,7 @@ CircleCIで使用する場合、Orbsが利用可能です：
 
 ```yaml
 orbs:
-  ecspresso: fujiwara/ecspresso@1.0
+  ecspresso: fujiwara/ecspresso@2.0
 ```
 
 ## GitHub Actions
@@ -54,5 +54,5 @@ orbs:
 GitHub Actionsで使用する場合：
 
 ```yaml
-- uses: kayac/ecspresso-action@v1
+- uses: kayac/ecspresso-action@v2
 ```

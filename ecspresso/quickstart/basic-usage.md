@@ -12,13 +12,19 @@ ecspressoを使用するための基本的な手順を説明します。
 
 ## 初期化
 
-まず、ecspressoの設定ファイルを作成します。
+まず、ecspressoの設定ファイルを作成します。v2では、YAML形式とJsonnet形式の両方がサポートされています。
 
 ```console
 $ ecspresso init --region ap-northeast-1 --cluster your-cluster-name --service your-service-name
 ```
 
-このコマンドは、現在のディレクトリに`ecspresso.yml`、`ecs-service-def.json`、`ecs-task-def.json`を作成します。
+Jsonnet形式で初期化する場合：
+
+```console
+$ ecspresso init --region ap-northeast-1 --cluster your-cluster-name --service your-service-name --jsonnet
+```
+
+このコマンドは、現在のディレクトリに設定ファイル（`ecspresso.yml`または`ecspresso.jsonnet`）、`ecs-service-def.json`、`ecs-task-def.json`を作成します。
 
 ## 設定ファイル
 
@@ -31,6 +37,19 @@ service: your-service-name
 service_definition: ecs-service-def.json
 task_definition: ecs-task-def.json
 timeout: 10m
+```
+
+Jsonnet形式の場合：
+
+```jsonnet
+{
+  region: "ap-northeast-1",
+  cluster: "your-cluster-name",
+  service: "your-service-name",
+  service_definition: "ecs-service-def.json",
+  task_definition: "ecs-task-def.json",
+  timeout: "10m"
+}
 ```
 
 ## デプロイ

@@ -12,27 +12,44 @@ ecspressoを使用して大規模なECSサービスを効率的に管理する�
 
 ## マイクロサービスアーキテクチャでの活用
 
-多数のマイクロサービスを管理する場合、各サービスごとにecspressoの設定を用意することで、独立したデプロイが可能になります。
+多数のマイクロサービスを管理する場合、各サービスごとにecspressoの設定を用意することで、独立したデプロイが可能になります。v2では、Jsonnet形式の設定ファイルもサポートされ、より柔軟な設定管理が可能になりました。
 
 ```
 .
 ├── service-a/
-│   ├── ecspresso.yml
-│   ├── ecs-task-def.json
-│   └── ecs-service-def.json
+│   ├── ecspresso.yml (または ecspresso.jsonnet)
+│   ├── ecs-task-def.json (または ecs-task-def.jsonnet)
+│   └── ecs-service-def.json (または ecs-service-def.jsonnet)
 ├── service-b/
-│   ├── ecspresso.yml
-│   ├── ecs-task-def.json
-│   └── ecs-service-def.json
+│   ├── ecspresso.yml (または ecspresso.jsonnet)
+│   ├── ecs-task-def.json (または ecs-task-def.jsonnet)
+│   └── ecs-service-def.json (または ecs-service-def.jsonnet)
 └── service-c/
-    ├── ecspresso.yml
-    ├── ecs-task-def.json
-    └── ecs-service-def.json
+    ├── ecspresso.yml (または ecspresso.jsonnet)
+    ├── ecs-task-def.json (または ecs-task-def.jsonnet)
+    └── ecs-service-def.json (または ecs-service-def.jsonnet)
+```
+
+v2では、共通のJsonnetライブラリを使用して設定を共有することもできます：
+
+```
+.
+├── lib/
+│   ├── base-task-def.libsonnet
+│   └── base-service-def.libsonnet
+├── service-a/
+│   ├── ecspresso.jsonnet
+│   ├── ecs-task-def.jsonnet
+│   └── ecs-service-def.jsonnet
+├── service-b/
+...
 ```
 
 ## 共通設定の再利用
 
-複数のサービスで共通の設定を再利用するには、テンプレート関数やプラグインを活用します。
+複数のサービスで共通の設定を再利用するには、テンプレート関数やプラグインを活用します。v2では、Jsonnetサポートが追加され、より柔軟な設定の再利用が可能になりました。
+
+### テンプレート関数による再利用
 
 例えば、共通のタスク実行ロールやロギング設定を持つ基本タスク定義テンプレートを作成し、各サービスで拡張できます：
 
@@ -59,6 +76,39 @@ ecspressoを使用して大規模なECSサービスを効率的に管理する�
       }
     }
   ]
+}
+```
+
+### Jsonnetによる再利用（v2）
+
+v2では、Jsonnetを使用してより柔軟な設定の再利用が可能になりました：
+
+```jsonnet
+// base-task-def.libsonnet
+{
+  createTaskDefinition(serviceName, cpu, memory, image):: {
+    executionRoleArn: "arn:aws:iam::123456789012:role/ecsTaskExecutionRole",
+    taskRoleArn: "arn:aws:iam::123456789012:role/ecsTaskRole",
+    family: serviceName,
+    networkMode: "awsvpc",
+    requiresCompatibilities: ["FARGATE"],
+    cpu: cpu,
+    memory: memory,
+    containerDefinitions: [
+      {
+        name: serviceName,
+        image: image,
+        logConfiguration: {
+          logDriver: "awslogs",
+          options: {
+            "awslogs-group": "/ecs/" + serviceName,
+            "awslogs-region": "ap-northeast-1",
+            "awslogs-stream-prefix": "ecs"
+          }
+        }
+      }
+    ]
+  }
 }
 ```
 
