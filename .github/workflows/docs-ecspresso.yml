@@ -1,0 +1,21 @@
+name: Ask Devin to generate ecspresso docs
+
+on:
+  workflow_dispatch:
+
+jobs:
+  prompt-devin:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send prompt via Incoming Webhook
+        run: |
+          SLACK_TEXT="<@U08PYJ5B9LK> "
+
+          SLACK_TEXT+="bufferings/devin-docs リポジトリ main ブランチの"
+          SLACK_TEXT+=".instructions/docs-ecspresso.md に従ってPRを作成してください。"
+
+          payload="{\"text\":\"${SLACK_TEXT//\"/\\\"}\"}"
+
+          curl -X POST -H 'Content-Type: application/json' \
+               --data "$payload" \
+               "${{ secrets.SLACK_DEVIN_CALLER_WEBHOOK_URL }}"
