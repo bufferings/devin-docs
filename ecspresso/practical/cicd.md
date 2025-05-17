@@ -37,7 +37,7 @@ jobs:
       - name: Deploy with ecspresso
         uses: kayac/ecspresso-action@v1
         with:
-          version: v1.5.0
+          version: v2.5.0
           command: deploy
           config: ecspresso.yml
 ```
@@ -62,7 +62,7 @@ jobs:
       - aws-cli/setup:
           profile-name: default
       - ecspresso/setup:
-          version: v1.5.0
+          version: v2.5.0
       - run:
           name: Deploy to ECS
           command: ecspresso deploy --config ecspresso.yml
@@ -89,7 +89,7 @@ phases:
     runtime-versions:
       golang: 1.16
     commands:
-      - curl -sL https://github.com/kayac/ecspresso/releases/download/v1.5.0/ecspresso_1.5.0_linux_amd64.tar.gz | tar xzf -
+      - curl -sL https://github.com/kayac/ecspresso/releases/download/v2.5.0/ecspresso_2.5.0_linux_amd64.tar.gz | tar xzf -
       - mv ecspresso /usr/local/bin/
   
   build:
@@ -117,7 +117,7 @@ deploy:
     name: amazon/aws-cli:latest
     entrypoint: [""]
   before_script:
-    - curl -sL https://github.com/kayac/ecspresso/releases/download/v1.5.0/ecspresso_1.5.0_linux_amd64.tar.gz | tar xzf -
+    - curl -sL https://github.com/kayac/ecspresso/releases/download/v2.5.0/ecspresso_2.5.0_linux_amd64.tar.gz | tar xzf -
     - mv ecspresso /usr/local/bin/
     - aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
     - aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
@@ -175,4 +175,67 @@ export ECR_REPOSITORY_URL=123456789012.dkr.ecr.ap-northeast-1.amazonaws.com
 export IMAGE_TAG=v1.0.0
 export DEPLOY_ENV=production
 ecspresso deploy
+```
+
+## Jsonnetを活用した設定管理
+
+v2では、Jsonnet形式の設定ファイルがサポートされ、より柔軟な設定管理が可能になりました：
+
+```jsonnet
+// ecspresso.jsonnet
+{
+  region: "ap-northeast-1",
+  cluster: "my-cluster",
+  service: "my-service",
+  task_definition: "ecs-task-def.jsonnet",
+  service_definition: "ecs-service-def.jsonnet",
+  timeout: "10m",
+  plugins: [
+    {
+      name: "ssm",
+    },
+    {
+      name: "secretsmanager",
+    }
+  ]
+}
+```
+
+タスク定義もJsonnetで記述できます：
+
+```jsonnet
+// ecs-task-def.jsonnet
+local env = std.extVar("env");
+local appImage = std.extVar("app_image");
+
+{
+  containerDefinitions: [
+    {
+      name: "app",
+      image: appImage,
+      environment: [
+        {
+          name: "ENV",
+          value: env
+        }
+      ]
+    }
+  ],
+  family: "my-app-" + env,
+  executionRoleArn: "arn:aws:iam::123456789012:role/ecsTaskExecutionRole",
+  networkMode: "awsvpc",
+  requiresCompatibilities: [
+    "FARGATE"
+  ],
+  cpu: "256",
+  memory: "512"
+}
+```
+
+CI/CDパイプラインでは、以下のようにJsonnet変数を渡して実行できます：
+
+```bash
+ecspresso render task --config ecspresso.jsonnet --jsonnet \
+  --ext-str env=production \
+  --ext-str app_image=123456789012.dkr.ecr.ap-northeast-1.amazonaws.com/myapp:v1.0.0
 ```

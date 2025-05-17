@@ -71,7 +71,11 @@ ecspresso deploy --config ecspresso.prod.yml
 
 ## プラグインを使用した環境設定
 
-ecspressoのプラグイン機能を使用して、環境ごとの設定を管理することもできます。例えば、tfstateプラグインを使用して、Terraformの状態から環境固有の値を取得できます。
+ecspressoのプラグイン機能を使用して、環境ごとの設定を管理することもできます。v2では、外部プラグイン、SSMパラメータストアプラグイン、Secrets Managerプラグインがサポートされました。
+
+### tfstateプラグイン
+
+Terraformの状態から環境固有の値を取得できます：
 
 ```yaml
 # ecspresso.yml
@@ -91,6 +95,39 @@ plugins:
       ],
       "securityGroups": [
         "{{ tfstate `aws_security_group.ecs.id` }}"
+      ]
+    }
+  }
+}
+```
+
+### 複数のtfstateファイル
+
+v2では、プレフィックスを使用して複数のtfstateファイルをサポートします：
+
+```yaml
+# ecspresso.yml
+plugins:
+  - name: tfstate
+    config:
+      url: s3://my-bucket/network.tfstate
+      prefix: network
+  - name: tfstate
+    config:
+      url: s3://my-bucket/app.tfstate
+      prefix: app
+```
+
+```json
+{
+  "networkConfiguration": {
+    "awsvpcConfiguration": {
+      "subnets": [
+        "{{ tfstate `network:aws_subnet.private['az-a'].id` }}",
+        "{{ tfstate `network:aws_subnet.private['az-b'].id` }}"
+      ],
+      "securityGroups": [
+        "{{ tfstate `app:aws_security_group.ecs.id` }}"
       ]
     }
   }
@@ -118,6 +155,45 @@ graph TD
     K -->|成功| N[本番へマージ]
 ```
 
+## Jsonnetを活用した環境管理
+
+v2では、Jsonnet形式の設定ファイルがサポートされ、より柔軟な環境管理が可能になりました：
+
+```jsonnet
+// ecspresso.jsonnet
+local env = std.extVar("env");
+
+{
+  region: "ap-northeast-1",
+  cluster: "my-cluster-" + env,
+  service: "my-service-" + env,
+  task_definition: "ecs-task-def.jsonnet",
+  service_definition: "ecs-service-def.jsonnet",
+  timeout: "10m",
+  plugins: [
+    {
+      name: "ssm",
+    },
+    {
+      name: "secretsmanager",
+    }
+  ]
+}
+```
+
+環境ごとに異なる設定でデプロイする場合：
+
+```bash
+# 開発環境
+ecspresso deploy --config ecspresso.jsonnet --jsonnet --ext-str env=dev
+
+# ステージング環境
+ecspresso deploy --config ecspresso.jsonnet --jsonnet --ext-str env=staging
+
+# 本番環境
+ecspresso deploy --config ecspresso.jsonnet --jsonnet --ext-str env=prod
+```
+
 ## 環境固有の変数管理
 
 環境固有の変数を管理するためのベストプラクティスは以下の通りです：
@@ -126,8 +202,11 @@ graph TD
 2. **SSMパラメータストア**: 環境ごとのパラメータをAWS SSMパラメータストアに保存
 3. **SecretsManager**: 機密情報をAWS Secrets Managerに保存
 4. **Terraform**: インフラストラクチャをコードとして管理し、環境ごとに異なる状態を維持
+5. **Jsonnet**: 環境ごとの設定を柔軟に管理
 
-例えば、SSMパラメータストアを使用する場合：
+### SSMパラメータストアとSecrets Managerの活用
+
+v2では、SSMパラメータストアとSecrets Managerのプラグインが組み込まれています：
 
 ```json
 {
@@ -152,3 +231,18 @@ graph TD
 ```
 
 これにより、環境ごとに異なる設定を簡単に管理できます。
+
+### 外部プラグインの活用
+
+v2では、カスタム外部プラグインを使用して、より柔軟な環境管理が可能になりました：
+
+```yaml
+# ecspresso.yml
+plugins:
+  - name: my-env-plugin
+    command: /path/to/env-plugin
+    config:
+      env: "{{ env `ENV` }}"
+```
+
+外部プラグインは、環境固有の設定を動的に生成するために使用できます。
