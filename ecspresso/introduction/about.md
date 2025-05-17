@@ -8,6 +8,38 @@ nav_order: 1
 
 # ecspressoとは
 
+ecspressoは、Amazon ECSのデプロイツールです。その名前は「espresso」と同じ発音で、コーヒーのエスプレッソにちなんでいます。
+
+## 主な機能
+
+ecspressoは以下のような機能を提供します：
+
+- **サービスのデプロイ** - 既存のECSサービスを簡単に更新
+- **タスク定義の管理** - JSONやJSONnet形式でタスク定義ファイルを管理
+- **Blue/Greenデプロイ** - AWS CodeDeployを使用した無停止デプロイ
+- **オートスケーリングの管理** - Application Auto Scalingの設定管理
+- **タスクの実行** - ワンタイムタスクの実行とログ監視
+- **リソース検証** - サービス設定の検証とトラブルシューティング
+
+## 動作の仕組み
+
+ecspressoは、設定ファイル（YAML、JSON、Jsonnet形式）に基づいてECSのリソースを管理します。
+
+```mermaid
+graph TD
+    A[設定ファイル ecspresso.yml] --> B[タスク定義 JSON/Jsonnet]
+    A --> C[サービス定義 JSON/Jsonnet]
+    B --> D[ecspresso CLI]
+    C --> D
+    D --> E[AWS SDK]
+    E --> F[Amazon ECS]
+    E --> G[CodeDeploy]
+    E --> H[Auto Scaling]
+    E --> I[CloudWatch Logs]
+```
+
+ecspressoを使用することで、ECSサービスのデプロイをコード化し、より安全で再現可能なデプロイプロセスを実現できます。
+
 ecspressoは、Amazon ECS（Elastic Container Service）向けのデプロイツールです。コマンドラインから簡単にECSサービスとタスク定義を管理することができます。
 
 ## 主な機能
