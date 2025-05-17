@@ -1,348 +1,202 @@
 ---
 layout: default
-title: 設定・検証コマンド
+title: 設定関連コマンド
 parent: コマンドリファレンス
 grand_parent: ecspresso
 nav_order: 3
 ---
 
-# 設定・検証コマンド
+# 設定関連コマンド
 
 ## init
 
 `init`コマンドは、既存のECSサービスから設定ファイルを作成します。
 
 ```
-ecspresso init --service SERVICE [オプション]
+Usage: ecspresso init [options]
+
+Options:
+  --region=REGION                 AWSリージョン
+  --cluster=CLUSTER               ECSクラスター名
+  --service=SERVICE               ECSサービス名
+  --config=CONFIG                 設定ファイル名 (デフォルト: ecspresso.yml)
+  --task-definition=ARN           タスク定義ARN
+  --update-task-definition        タスク定義を更新
+  --update-service-definition     サービス定義を更新
+  --no-load-task-definition       タスク定義を読み込まない
+  --no-load-service-definition    サービス定義を読み込まない
+  --output-task-definition=FILE   タスク定義の出力先ファイル名
+  --output-service-definition=FILE サービス定義の出力先ファイル名
+  --force                         既存の設定ファイルを上書き
 ```
-
-### オプション
-
-| オプション | 説明 | デフォルト |
-|----------|------|----------|
-| `--region REGION` | AWSリージョン | - |
-| `--cluster CLUSTER` | ECSクラスター名 | - |
-| `--service SERVICE` | 必須：ECSサービス名 | - |
-| `--config FILE` | 設定ファイル名 | ecspresso.yml |
-| `--task-definition-path FILE` | タスク定義ファイルのパス | ecs-task-def.json |
-| `--service-definition-path FILE` | サービス定義ファイルのパス | ecs-service-def.json |
-
-## diff
-
-`diff`コマンドは、タスク定義、サービス定義と現在実行中のサービスおよびタスク定義の差分を表示します。
-
-```
-ecspresso diff [オプション]
-```
-
-### オプション
-
-| オプション | 説明 | デフォルト |
-|----------|------|----------|
-| `--unified` | 統一形式で差分を表示 | false |
-| `--external CMD` | 外部コマンドを使用して差分を表示 | - |
-
-## verify
-
-`verify`コマンドは、設定内のリソースを検証します。
-
-```
-ecspresso verify [オプション]
-```
-
-### オプション
-
-| オプション | 説明 | デフォルト |
-|----------|------|----------|
-| `--task-def FILE` | 検証するタスク定義ファイル | - |
-
-以下のような項目を検証します：
-- ECSクラスターの存在
-- サービス定義のターゲットグループがタスク定義のコンテナ名とポートと一致するか
-- タスクロールとタスク実行ロールが存在し、ecs-tasks.amazonaws.comによって引き受けられるか
-- タスク定義で定義されたコンテナイメージがURLに存在するか（ECRまたはDockerHub公開イメージのみ）
-- タスク定義のシークレットが存在し読み取り可能か
-- 指定されたCloudWatchロググループストリームにログストリームを作成しメッセージを送信できるか
-
-## render
-
-`render`コマンドは、設定、サービス定義、またはタスク定義ファイルをSTDOUTにレンダリングします。
-
-```
-ecspresso render <targets> [オプション]
-```
-
-### オプション
-
-| オプション | 説明 | デフォルト |
-|----------|------|----------|
-| `--format FORMAT` | 出力形式（json, yaml, jsonnet） | - |
-
-### 検証フロー
-
-```mermaid
-flowchart TD
-    A[検証開始] --> B[タスク定義の検証]
-    B --> C{実行ロールの検証}
-    C -->|成功| D{タスクロールの検証}
-    C -->|失敗| E[エラー]
-    D -->|成功| F{コンテナイメージの検証}
-    D -->|失敗| E
-    F -->|成功| G{ログ設定の検証}
-    F -->|失敗| E
-    G -->|成功| H[サービス定義の検証]
-    G -->|失敗| E
-    H --> I{クラスターの検証}
-    I -->|成功| J[検証完了]
-    I -->|失敗| E
-```
-
-## status
-
-`status`コマンドは、サービスのステータスを表示します。
-
-```
-ecspresso status [オプション]
-```
-
-### オプション
-
-| オプション | 説明 | デフォルト |
-|----------|------|----------|
-| `--events N` | 表示するイベント数 | 10 |
-
-## wait
-
-`wait`コマンドは、サービスが安定するまで待機します。
-
-```
-ecspresso wait [オプション]
-```
-
-### オプション
-
-| オプション | 説明 | デフォルト |
-|----------|------|----------|
-| `--timeout DURATION` | タイムアウト時間 | - |
-
-## revisions
-
-`revisions`コマンドは、タスク定義のリビジョンを表示します。
-
-```
-ecspresso revisions [オプション]
-```
-
-### オプション
-
-| オプション | 説明 | デフォルト |
-|----------|------|----------|
-| `--output FORMAT` | 出力形式 | table |
-
-ecspressoの設定と検証に関連するコマンドを説明します。
-
-## init
-
-`init`コマンドは、ecspressoの設定ファイルを初期化します。v2では、Jsonnet形式の設定ファイルもサポートされるようになりました。
-
-```console
-$ ecspresso init [オプション]
-```
-
-### 主なオプション
-
-| オプション | 説明 |
-|------------|------|
-| `--region` | AWSリージョン |
-| `--cluster` | ECSクラスター名 |
-| `--service` | ECSサービス名 |
-| `--task-definition` | タスク定義名またはARN |
-| `--config` | 設定ファイル名（デフォルト: ecspresso.yml） |
-| `--jsonnet` | Jsonnet形式の設定ファイルを作成します |
 
 ### 使用例
 
 ```console
-$ ecspresso init --region ap-northeast-1 --cluster my-cluster --service my-service
-```
+# 基本的な初期化
+$ ecspresso init --region ap-northeast-1 --cluster default --service myservice
 
-Jsonnet形式の設定ファイルを作成：
-```console
-$ ecspresso init --region ap-northeast-1 --cluster my-cluster --service my-service --jsonnet
+# 設定ファイル名を指定して初期化
+$ ecspresso init --region ap-northeast-1 --cluster default --service myservice --config myapp.yml
+
+# タスク定義のみを読み込む
+$ ecspresso init --region ap-northeast-1 --cluster default --service myservice --no-load-service-definition
 ```
 
 ## diff
 
-`diff`コマンドは、ローカルのタスク/サービス定義とリモート（ECS上）の定義の差分を表示します。v2では、`--unified`オプションがデフォルトでtrueになり、外部diffコマンドのサポートが追加されました。
+`diff`コマンドは、現在のサービスと設定ファイルの差分を表示します。
 
-```console
-$ ecspresso diff [オプション]
 ```
+Usage: ecspresso diff [options]
 
-### 主なオプション
-
-| オプション | 説明 |
-|------------|------|
-| `--config` | 設定ファイル名 |
-| `--task-definition` | タスク定義のJSONファイル |
-| `--service-definition` | サービス定義のJSONファイル |
-| `--unified` | 統合形式で差分を表示します（v2ではデフォルトでtrue） |
-| `--external` | 外部diffコマンドを使用します |
+Options:
+  --config-only                   設定ファイルのみを表示
+  --task-definition=ARN           比較するタスク定義ARN
+  --task-def=FILE                 比較するタスク定義ファイル
+  --service-definition=ARN        比較するサービス定義ARN
+  --service-def=FILE              比較するサービス定義ファイル
+  --output=FORMAT                 出力形式 (text, json) (デフォルト: text)
+```
 
 ### 使用例
 
 ```console
+# 現在のサービスと設定ファイルの差分を表示
 $ ecspresso diff
-```
 
-外部diffツールを使用：
-```console
-$ ecspresso diff --external "difft --color=always"
-```
+# JSON形式で差分を表示
+$ ecspresso diff --output=json
 
-非統合形式で表示：
-```console
-$ ecspresso diff --unified=false
-```
-
-## verify
-
-`verify`コマンドは、サービス/タスク定義に関連するリソースを検証します。v2では、コンテナイメージプラットフォームの検証機能が追加され、IAMロールのexecutionRoleへのロールバックが行われなくなりました。
-
-```console
-$ ecspresso verify [オプション]
-```
-
-### 検証項目
-
-- ECSクラスターの存在
-- サービス定義のターゲットグループがタスク定義のコンテナ名とポートと一致するか
-- タスクロールとタスク実行ロールが存在し、ecs-tasks.amazonaws.comによって引き受けられるか
-- タスク定義で定義されたコンテナイメージがURLに存在するか（ECRまたはDockerHub公開イメージのみ）
-- コンテナイメージのプラットフォームがタスク定義と一致するか
-- タスク定義のシークレットが存在し、読み取り可能か（AWS Secrets ManagerとSSMパラメータストア）
-- 指定されたCloudWatchロググループストリームにログストリームを作成しメッセージを送信できるか
-
-### 主なオプション
-
-| オプション | 説明 |
-|------------|------|
-| `--config` | 設定ファイル名 |
-| `--timeout` | 検証のタイムアウト時間 |
-
-### 使用例
-
-```console
-$ ecspresso verify
-```
-
-タイムアウトを指定して検証：
-```console
-$ ecspresso verify --timeout 5m
+# 特定のタスク定義ファイルと比較
+$ ecspresso diff --task-def=new-task-def.json
 ```
 
 ## render
 
-`render`コマンドは、テンプレート関数を評価してタスク/サービス定義をレンダリングします。v2では、コマンドがフラグではなく引数を受け付けるようになり、Jsonnetサポートが追加されました。
+`render`コマンドは、タスク定義とサービス定義をレンダリングします。
 
-```console
-$ ecspresso render [引数] [オプション]
 ```
+Usage: ecspresso render [options]
 
-### 主なオプション
-
-| オプション | 説明 |
-|------------|------|
-| `--config` | 設定ファイル名 |
-| `--task-definition` | タスク定義のJSONファイル |
-| `--service-definition` | サービス定義のJSONファイル |
-| `--jsonnet` | Jsonnet形式の入力をレンダリングします |
+Options:
+  --task-def=FILE                 レンダリングするタスク定義ファイル
+  --service-def=FILE              レンダリングするサービス定義ファイル
+```
 
 ### 使用例
 
 ```console
-$ ecspresso render task
+# タスク定義とサービス定義をレンダリング
+$ ecspresso render
+
+# 特定のタスク定義ファイルをレンダリング
+$ ecspresso render --task-def=my-task-def.json
 ```
 
-サービス定義をレンダリング：
+## verify
+
+`verify`コマンドは、タスク定義とサービス定義を検証します。
+
+```
+Usage: ecspresso verify [options]
+
+Options:
+  --task-def=FILE                 検証するタスク定義ファイル
+  --service-def=FILE              検証するサービス定義ファイル
+```
+
+### 使用例
+
 ```console
-$ ecspresso render service
+# タスク定義とサービス定義を検証
+$ ecspresso verify
+
+# 特定のタスク定義ファイルを検証
+$ ecspresso verify --task-def=my-task-def.json
 ```
 
-Jsonnet形式の入力をレンダリング：
+## appspec
+
+`appspec`コマンドは、CodeDeployのAppSpecファイルを生成します。
+
+```
+Usage: ecspresso appspec [options]
+
+Options:
+  --task-def=FILE                 タスク定義ファイル
+  --output=FILE                   出力先ファイル名
+```
+
+### 使用例
+
 ```console
-$ ecspresso render task --jsonnet
+# AppSpecファイルを生成
+$ ecspresso appspec
+
+# 出力先を指定してAppSpecファイルを生成
+$ ecspresso appspec --output=appspec.yaml
 ```
 
-## プラグインシステム
+## config
 
-v2では、外部プラグインとSSMパラメータストアプラグイン、Secrets Managerプラグインがサポートされました。
+`config`コマンドは、現在の設定を表示します。
 
-### SSMパラメータストアプラグイン
+```
+Usage: ecspresso config [options]
 
-タスク定義内でSSMパラメータを参照できます：
-
-```json
-{
-  "containerDefinitions": [
-    {
-      "secrets": [
-        {
-          "name": "DB_PASSWORD",
-          "valueFrom": "arn:aws:ssm:ap-northeast-1:123456789012:parameter/myapp/db/password"
-        }
-      ]
-    }
-  ]
-}
+Options:
+  --output=FORMAT                 出力形式 (text, json) (デフォルト: text)
 ```
 
-### Secrets Managerプラグイン
+### 使用例
 
-タスク定義内でSecrets Managerのシークレットを参照できます：
+```console
+# 現在の設定を表示
+$ ecspresso config
 
-```json
-{
-  "containerDefinitions": [
-    {
-      "secrets": [
-        {
-          "name": "DB_PASSWORD",
-          "valueFrom": "arn:aws:secretsmanager:ap-northeast-1:123456789012:secret:myapp/db/password"
-        }
-      ]
-    }
-  ]
-}
+# JSON形式で設定を表示
+$ ecspresso config --output=json
 ```
 
-### 外部プラグイン
+## version
 
-カスタム外部プラグインを使用して、設定ファイルやタスク定義を拡張できます：
+`version`コマンドは、ecspressoのバージョンを表示します。
+
+```
+Usage: ecspresso version
+```
+
+### 使用例
+
+```console
+# バージョンを表示
+$ ecspresso version
+```
+
+## 設定ファイル構造
+
+ecspressoの設定ファイル（`ecspresso.yml`）の基本構造は以下の通りです：
 
 ```yaml
-# ecspresso.yml
+region: ap-northeast-1
+cluster: default
+service: myservice
+task_definition: ecs-task-def.json
+service_definition: ecs-service-def.json
+timeout: 10m
 plugins:
-  - name: my-plugin
-    command: /path/to/plugin
+  - name: tfstate
+    config:
+      path: terraform.tfstate
 ```
 
-## 設定・検証フロー図
+### 主な設定項目
 
-以下は設定・検証プロセスのフロー図です：
-
-```mermaid
-graph TD
-    A[プロジェクト開始] --> B[ecspresso init]
-    B --> C[設定ファイル作成]
-    C --> D{検証}
-    D -->|差分確認| E[ecspresso diff]
-    D -->|リソース検証| F[ecspresso verify]
-    D -->|テンプレートレンダリング| G[ecspresso render]
-    E --> H{問題あり?}
-    F --> H
-    G --> H
-    H -->|Yes| I[設定修正]
-    I --> D
-    H -->|No| J[デプロイ準備完了]
-```
+- **region**: AWSリージョン
+- **cluster**: ECSクラスター名
+- **service**: ECSサービス名
+- **task_definition**: タスク定義ファイルのパス
+- **service_definition**: サービス定義ファイルのパス
+- **timeout**: タイムアウト時間
+- **plugins**: 使用するプラグインの設定

@@ -7,205 +7,172 @@ nav_order: 5
 
 # トラブルシューティング
 
-ecspressoを使用する際に発生する可能性のある一般的な問題とその解決方法を説明します。
+ecspressoを使用する際によくある問題と解決策を紹介します。
 
-## デプロイ失敗
+## デプロイに関する問題
 
-### 症状
+### サービスの更新に失敗する
 
-`ecspresso deploy`コマンドが失敗し、以下のようなエラーが表示される場合があります：
+**症状**: `ecspresso deploy`コマンドを実行すると、サービスの更新に失敗する。
 
-```
-2023/01/01 12:00:00 service: my-service/my-cluster deploy failed: timeout
-```
+**考えられる原因と解決策**:
 
-### 解決策
+1. **タスク定義の問題**
+   - コンテナ定義が正しくない
+   - リソース制限（CPU/メモリ）が不適切
+   
+   **解決策**: `ecspresso verify`コマンドを使用して、タスク定義を検証します。
 
-1. **タスク定義の検証**: `ecspresso verify`コマンドを実行して、タスク定義に問題がないか確認します。
+2. **サービスロールの権限不足**
+   - ECSサービスロールに必要な権限がない
+   
+   **解決策**: サービスロールに適切な権限を付与します。
 
-2. **デプロイタイムアウトの延長**: デプロイに時間がかかる場合は、タイムアウト設定を延長します。
+3. **クラスターのリソース不足**
+   - クラスターにタスクを実行するためのリソースがない
+   
+   **解決策**: クラスターのキャパシティを増やすか、タスクのリソース要件を減らします。
 
-   ```yaml
-   # ecspresso.yml
-   region: ap-northeast-1
-   cluster: my-cluster
-   service: my-service
-   service_definition: ecs-service-def.json
-   task_definition: ecs-task-def.json
-   timeout: 20m  # タイムアウトを20分に延長
-   ```
+### Blue/Greenデプロイに失敗する
 
-3. **デプロイ設定の調整**: サービス定義のデプロイ設定を調整します。
+**症状**: CodeDeployを使用したBlue/Greenデプロイが失敗する。
 
-   ```json
-   "deploymentConfiguration": {
-     "deploymentCircuitBreaker": {
-       "enable": true,
-       "rollback": true
-     },
-     "maximumPercent": 200,
-     "minimumHealthyPercent": 100
-   }
-   ```
+**考えられる原因と解決策**:
 
-4. **ヘルスチェックの確認**: ALBのヘルスチェック設定とコンテナのヘルスチェック設定を確認します。
+1. **CodeDeployの設定ミス**
+   - デプロイグループの設定が正しくない
+   
+   **解決策**: CodeDeployのデプロイグループ設定を確認します。
 
-## タスク起動失敗
+2. **ヘルスチェックの失敗**
+   - 新しいタスクがヘルスチェックに合格しない
+   
+   **解決策**: アプリケーションのヘルスチェックエンドポイントを確認します。
 
-### 症状
+## タスク実行の問題
 
-タスクが起動せず、以下のようなエラーが表示される場合があります：
+### タスクが起動しない
 
-```
-STOPPED (ResourceInitializationError: unable to pull secrets or registry auth)
-```
+**症状**: `ecspresso run`コマンドを実行しても、タスクが起動しない。
 
-### 解決策
+**考えられる原因と解決策**:
 
-1. **IAMロールの確認**: タスク実行ロールに必要な権限があるか確認します。
+1. **ネットワーク設定の問題**
+   - サブネットやセキュリティグループの設定が正しくない
+   
+   **解決策**: ネットワーク設定を確認します。
 
-   ```console
-   $ ecspresso verify
-   ```
+2. **コンテナイメージの問題**
+   - イメージが存在しない
+   - イメージの取得に失敗する
+   
+   **解決策**: コンテナイメージの存在と権限を確認します。
 
-2. **シークレットの確認**: タスク定義で参照しているシークレットが存在し、アクセス可能か確認します。
+### タスクが即座に終了する
 
-3. **ECRリポジトリの確認**: ECRリポジトリにアクセスできるか確認します。
+**症状**: タスクが起動後すぐに終了する。
 
-   ```console
-   $ aws ecr get-login-password | docker login --username AWS --password-stdin <your-account-id>.dkr.ecr.<region>.amazonaws.com
-   ```
+**考えられる原因と解決策**:
 
-4. **ネットワーク設定の確認**: VPCのサブネットとセキュリティグループの設定を確認します。
+1. **アプリケーションのクラッシュ**
+   - アプリケーションがエラーで終了している
+   
+   **解決策**: `ecspresso run --watch-container=app`を使用してログを確認します。
 
-## 設定ファイルの問題
+2. **環境変数の問題**
+   - 必要な環境変数が設定されていない
+   
+   **解決策**: タスク定義の環境変数を確認します。
 
-### 症状
+## 設定に関する問題
 
-設定ファイルの読み込みに失敗し、以下のようなエラーが表示される場合があります：
+### 環境変数が反映されない
 
-```
-2023/01/01 12:00:00 load config failed: open ecspresso.yml: no such file or directory
-```
+**症状**: 環境変数ファイルを指定しても、値が反映されない。
 
-### 解決策
+**考えられる原因と解決策**:
 
-1. **ファイルパスの確認**: 正しいディレクトリで実行しているか確認します。
+1. **環境変数ファイルの形式が正しくない**
+   - 形式が正しくない
+   
+   **解決策**: 環境変数ファイルの形式を確認します。
 
-2. **設定ファイルの指定**: `--config`オプションで設定ファイルを明示的に指定します。
+2. **テンプレートの参照方法が正しくない**
+   - 変数の参照方法が間違っている
+   
+   **解決策**: テンプレート内の変数参照を確認します。
 
-   ```console
-   $ ecspresso deploy --config /path/to/ecspresso.yml
-   ```
+### Jsonnetファイルのエラー
 
-3. **設定ファイルの構文確認**: YAMLの構文が正しいか確認します。
+**症状**: Jsonnetファイルの処理中にエラーが発生する。
 
-## テンプレート関数のエラー
+**考えられる原因と解決策**:
 
-### 症状
+1. **Jsonnetの構文エラー**
+   - Jsonnetファイルに構文エラーがある
+   
+   **解決策**: Jsonnetファイルの構文を確認します。
 
-テンプレート関数の評価に失敗し、以下のようなエラーが表示される場合があります：
+2. **外部変数の問題**
+   - 外部変数が正しく設定されていない
+   
+   **解決策**: `--ext-str`または`--ext-code`オプションを確認します。
 
-```
-2023/01/01 12:00:00 template render failed: template: task:1:10: executing "task" at <must_env "MISSING_ENV">: error calling must_env: environment variable MISSING_ENV is not set
-```
+## よくあるエラーメッセージと対処法
 
-### 解決策
+### "AccessDenied"
 
-1. **環境変数の設定**: 必要な環境変数が設定されているか確認します。
+**エラーメッセージ**: `AccessDenied: User is not authorized to perform ecs:*`
 
-   ```console
-   $ export MISSING_ENV=value
-   ```
+**対処法**:
+- AWS認証情報が正しく設定されているか確認
+- IAMユーザー/ロールに必要な権限が付与されているか確認
 
-2. **テンプレートのレンダリング確認**: `ecspresso render`コマンドを使用して、テンプレートが正しくレンダリングされるか確認します。
+### "ResourceNotFoundException"
 
-   ```console
-   $ ecspresso render
-   ```
+**エラーメッセージ**: `ResourceNotFoundException: The specified cluster could not be found.`
 
-3. **条件付き環境変数**: 必須でない環境変数の場合は、`must_env`の代わりに`env`関数を使用します。
+**対処法**:
+- クラスター名が正しいか確認
+- リージョンが正しいか確認
 
-   ```json
-   {
-     "value": "{{ env `OPTIONAL_ENV` `default_value` }}"
-   }
-   ```
+### "InvalidParameterException"
 
-## トラブルシューティングフロー図
+**エラーメッセージ**: `InvalidParameterException: The specified task definition contains invalid parameters`
 
-以下はecspressoの一般的なトラブルシューティングフローを示しています：
+**対処法**:
+- タスク定義の内容を確認
+- `ecspresso verify`コマンドを使用して検証
 
-```mermaid
-graph TD
-    A[問題発生] --> B{エラータイプ}
-    B -->|デプロイ失敗| C[ecspresso verify実行]
-    B -->|タスク起動失敗| D[タスク実行ロール確認]
-    B -->|設定ファイルエラー| E[設定ファイル確認]
-    B -->|テンプレート関数エラー| F[環境変数確認]
-    
-    C --> G{検証結果}
-    G -->|問題あり| H[タスク定義修正]
-    G -->|問題なし| I[デプロイ設定確認]
-    
-    D --> J[シークレットアクセス確認]
-    J --> K[ECRアクセス確認]
-    K --> L[ネットワーク設定確認]
-    
-    E --> M[ファイルパス確認]
-    M --> N[YAML構文確認]
-    
-    F --> O[ecspresso render実行]
-    O --> P[テンプレート修正]
-    
-    H --> Q[再デプロイ]
-    I --> Q
-    L --> Q
-    N --> Q
-    P --> Q
-    
-    Q --> R{成功?}
-    R -->|Yes| S[問題解決]
-    R -->|No| A
-```
+## デバッグ方法
 
-## よくある質問
+### ログの詳細レベルを上げる
 
-### Q: ecspressoのバージョンアップ後にデプロイが失敗します
-
-A: 新しいバージョンでは、設定ファイルやコマンドオプションが変更されている可能性があります。リリースノートを確認し、必要に応じて設定を更新してください。特にv1からv2へのアップグレードでは、いくつかの破壊的変更があります。詳細は「はじめに」セクションの「v1とv2の違い」を参照してください。
-
-### Q: Blue/Greenデプロイが途中で止まります
-
-A: CodeDeployのコンソールでデプロイステータスを確認してください。手動承認が必要な場合や、テストが失敗している可能性があります。v2では、CodeDeployのデプロイメント完了を待つようになったため、v1と比較して動作が異なる場合があります。
-
-### Q: タスク定義の差分が大きすぎて確認しづらいです
-
-A: `ecspresso diff --external "difft --color=always"`のように外部diffツールを使用すると、差分が見やすくなります。v2では、`--unified`オプションがデフォルトでtrueになり、差分表示が改善されています。
-
-### Q: 環境変数が正しく展開されません
-
-A: `ecspresso render`コマンドを使用して、テンプレートがどのようにレンダリングされるか確認してください。環境変数が設定されていない場合は、適切なデフォルト値を指定するか、必要な環境変数を設定してください。
-
-### Q: Jsonnetファイルの使い方がわかりません
-
-A: v2では、Jsonnet形式の設定ファイルがサポートされています。以下のように使用できます：
+詳細なログを表示するには、`--debug`オプションを使用します：
 
 ```console
-$ ecspresso init --region ap-northeast-1 --cluster my-cluster --service my-service --jsonnet
-$ ecspresso render task --config ecspresso.jsonnet --jsonnet
+$ ecspresso --debug deploy
 ```
 
-### Q: 外部プラグインの開発方法を教えてください
+### ドライランモードの使用
 
-A: v2では、外部プラグインがサポートされています。プラグインは標準入力からJSONを受け取り、標準出力にJSONを返す実行可能ファイルです。詳細は[公式リポジトリ](https://github.com/kayac/ecspresso)を参照してください。
+実際の変更を行わずに動作を確認するには、`--dry-run`オプションを使用します：
 
-### Q: v1からv2へのマイグレーション時に注意すべき点は何ですか？
+```console
+$ ecspresso deploy --dry-run
+```
 
-A: 主な注意点は以下の通りです：
-- `create`コマンドが廃止され、`deploy`コマンドでサービスを作成するようになりました
-- `rollback --deregister-task-definition`がデフォルトでtrueになりました
-- `render`コマンドがフラグではなく引数を受け付けるようになりました
-- `verify`コマンドがIAMロールをexecutionRoleにロールバックしなくなりました
-- `diff --unified`がデフォルトでtrueになりました
-- ログメッセージの出力形式が変更されました
+### 差分の確認
+
+現在の設定と実際のリソースの差分を確認するには、`diff`コマンドを使用します：
+
+```console
+$ ecspresso diff
+```
+
+## サポートリソース
+
+問題が解決しない場合は、以下のリソースを参照してください：
+
+1. [GitHub Issues](https://github.com/kayac/ecspresso/issues)
+2. [ecspressoのドキュメント](https://github.com/kayac/ecspresso)

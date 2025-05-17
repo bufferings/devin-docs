@@ -24,6 +24,7 @@ Flags:
       --timeout=TIMEOUT           タイムアウト。設定ファイルで上書き可能 ($ECSPRESSO_TIMEOUT)
       --filter-command=STRING     フィルターコマンド ($ECSPRESSO_FILTER_COMMAND)
       --[no-]color                カラー出力を有効化 ($ECSPRESSO_COLOR)
+      --log-format=FORMAT         ログフォーマット (text, json) ($ECSPRESSO_LOG_FORMAT)
 ```
 
 各コマンドの詳細については、サブセクションを参照してください。

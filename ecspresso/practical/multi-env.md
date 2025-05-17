@@ -1,248 +1,213 @@
 ---
 layout: default
-title: 複数環境での運用
+title: 複数環境の管理
 parent: 実践ガイド
 grand_parent: ecspresso
 nav_order: 2
 ---
 
-# 複数環境での運用
+# 複数環境の管理
 
-ecspressoを使用して複数の環境（開発、ステージング、本番など）を管理する方法を説明します。
+多くのプロジェクトでは、開発、ステージング、本番など複数の環境を管理する必要があります。ecspressoでは、環境変数とテンプレート機能を使用して、複数環境を効率的に管理できます。
 
-## 環境ごとの設定ファイル
+## 環境変数ファイルの活用
 
-複数環境を管理するための一般的なアプローチは、環境ごとに異なる設定ファイルを用意することです。
+ecspressoは、`--envfile`オプションを使用して環境変数ファイルを読み込むことができます。これにより、環境ごとに異なる設定を簡単に管理できます。
+
+### 環境変数ファイルの例
 
 ```
-.
-├── ecspresso.yml          # 共通設定
-├── ecspresso.dev.yml      # 開発環境用設定
-├── ecspresso.staging.yml  # ステージング環境用設定
-├── ecspresso.prod.yml     # 本番環境用設定
-├── ecs-task-def.json      # 共通タスク定義テンプレート
-└── ecs-service-def.json   # 共通サービス定義テンプレート
+# .env.dev（開発環境）
+CLUSTER=dev-cluster
+SERVICE=myservice-dev
+DESIRED_COUNT=1
+IMAGE_TAG=latest
+
+# .env.stg（ステージング環境）
+CLUSTER=stg-cluster
+SERVICE=myservice-stg
+DESIRED_COUNT=2
+IMAGE_TAG=stable
+
+# .env.prod（本番環境）
+CLUSTER=prod-cluster
+SERVICE=myservice-prod
+DESIRED_COUNT=5
+IMAGE_TAG=release
 ```
 
-各環境用の設定ファイルでは、`--config`オプションを使用して指定します：
+### 環境変数ファイルの使用方法
 
 ```console
-$ ecspresso deploy --config ecspresso.dev.yml
-$ ecspresso deploy --config ecspresso.staging.yml
-$ ecspresso deploy --config ecspresso.prod.yml
+# 開発環境へのデプロイ
+$ ecspresso --envfile=.env.dev deploy
+
+# ステージング環境へのデプロイ
+$ ecspresso --envfile=.env.stg deploy
+
+# 本番環境へのデプロイ
+$ ecspresso --envfile=.env.prod deploy
 ```
 
-## テンプレート関数を使用した環境変数の活用
+## テンプレート機能の活用
 
-環境変数を使用して、同じ定義ファイルを異なる環境で再利用できます。
+ecspressoは、タスク定義とサービス定義で環境変数を参照できます。これにより、環境ごとに異なる設定を一元管理できます。
+
+### タスク定義のテンプレート例
 
 ```json
 {
+  "family": "${SERVICE}",
   "containerDefinitions": [
     {
       "name": "app",
-      "image": "{{ env `ECR_REPOSITORY_URL` }}/myapp:{{ env `IMAGE_TAG` }}",
+      "image": "myapp:${IMAGE_TAG}",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 80,
+          "hostPort": 80,
+          "protocol": "tcp"
+        }
+      ],
       "environment": [
         {
           "name": "ENV",
-          "value": "{{ must_env `DEPLOY_ENV` }}"
+          "value": "${ENV:-dev}"
         }
-      ]
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/${SERVICE}",
+          "awslogs-region": "${AWS_REGION}",
+          "awslogs-stream-prefix": "ecs"
+        }
+      }
     }
   ]
 }
 ```
 
-環境ごとに異なる環境変数を設定してからecspressoを実行します：
+### サービス定義のテンプレート例
+
+```json
+{
+  "cluster": "${CLUSTER}",
+  "serviceName": "${SERVICE}",
+  "desiredCount": ${DESIRED_COUNT},
+  "loadBalancers": [
+    {
+      "targetGroupArn": "${TARGET_GROUP_ARN}",
+      "containerName": "app",
+      "containerPort": 80
+    }
+  ],
+  "networkConfiguration": {
+    "awsvpcConfiguration": {
+      "subnets": ${SUBNETS},
+      "securityGroups": ${SECURITY_GROUPS},
+      "assignPublicIp": "DISABLED"
+    }
+  }
+}
+```
+
+## 環境ごとの設定ファイル
+
+複雑なプロジェクトでは、環境ごとに異なる設定ファイルを使用することもできます。
+
+### ディレクトリ構造の例
+
+```
+.
+├── ecspresso.yml
+├── environments/
+│   ├── dev/
+│   │   ├── ecspresso.yml
+│   │   ├── ecs-task-def.json
+│   │   └── ecs-service-def.json
+│   ├── stg/
+│   │   ├── ecspresso.yml
+│   │   ├── ecs-task-def.json
+│   │   └── ecs-service-def.json
+│   └── prod/
+│       ├── ecspresso.yml
+│       ├── ecs-task-def.json
+│       └── ecs-service-def.json
+└── scripts/
+    └── deploy.sh
+```
+
+### デプロイスクリプトの例
 
 ```bash
-# 開発環境
-export ECR_REPOSITORY_URL=123456789012.dkr.ecr.ap-northeast-1.amazonaws.com
-export IMAGE_TAG=dev
-export DEPLOY_ENV=development
-ecspresso deploy --config ecspresso.dev.yml
+#!/bin/bash
+# deploy.sh
 
-# 本番環境
-export ECR_REPOSITORY_URL=123456789012.dkr.ecr.ap-northeast-1.amazonaws.com
-export IMAGE_TAG=v1.0.0
-export DEPLOY_ENV=production
-ecspresso deploy --config ecspresso.prod.yml
+ENV=$1
+if [ -z "$ENV" ]; then
+  echo "Usage: $0 <env>"
+  exit 1
+fi
+
+cd environments/$ENV
+ecspresso deploy
 ```
 
-## プラグインを使用した環境設定
+使用方法：
 
-ecspressoのプラグイン機能を使用して、環境ごとの設定を管理することもできます。v2では、外部プラグイン、SSMパラメータストアプラグイン、Secrets Managerプラグインがサポートされました。
-
-### tfstateプラグイン
-
-Terraformの状態から環境固有の値を取得できます：
-
-```yaml
-# ecspresso.yml
-plugins:
-  - name: tfstate
-    config:
-      url: s3://my-bucket/terraform-{{ env `ENV` }}.tfstate
+```console
+$ ./scripts/deploy.sh dev   # 開発環境へのデプロイ
+$ ./scripts/deploy.sh stg   # ステージング環境へのデプロイ
+$ ./scripts/deploy.sh prod  # 本番環境へのデプロイ
 ```
+
+## 環境管理のベストプラクティス
+
+### 1. 環境変数の階層化
+
+共通の設定と環境固有の設定を分離します：
+
+```
+# .env.common（共通設定）
+AWS_REGION=ap-northeast-1
+LOG_LEVEL=info
+
+# .env.dev（開発環境固有の設定）
+CLUSTER=dev-cluster
+SERVICE=myservice-dev
+```
+
+使用方法：
+
+```console
+$ ecspresso --envfile=.env.common,.env.dev deploy
+```
+
+### 2. 環境変数のデフォルト値
+
+テンプレート内でデフォルト値を設定します：
 
 ```json
 {
-  "networkConfiguration": {
-    "awsvpcConfiguration": {
-      "subnets": [
-        "{{ tfstate `aws_subnet.private['az-a'].id` }}",
-        "{{ tfstate `aws_subnet.private['az-b'].id` }}"
-      ],
-      "securityGroups": [
-        "{{ tfstate `aws_security_group.ecs.id` }}"
-      ]
+  "environment": [
+    {
+      "name": "LOG_LEVEL",
+      "value": "${LOG_LEVEL:-info}"
     }
-  }
+  ]
 }
 ```
 
-### 複数のtfstateファイル
-
-v2では、プレフィックスを使用して複数のtfstateファイルをサポートします：
-
-```yaml
-# ecspresso.yml
-plugins:
-  - name: tfstate
-    config:
-      url: s3://my-bucket/network.tfstate
-      prefix: network
-  - name: tfstate
-    config:
-      url: s3://my-bucket/app.tfstate
-      prefix: app
-```
-
-```json
-{
-  "networkConfiguration": {
-    "awsvpcConfiguration": {
-      "subnets": [
-        "{{ tfstate `network:aws_subnet.private['az-a'].id` }}",
-        "{{ tfstate `network:aws_subnet.private['az-b'].id` }}"
-      ],
-      "securityGroups": [
-        "{{ tfstate `app:aws_security_group.ecs.id` }}"
-      ]
-    }
-  }
-}
-```
-
-## 複数環境管理のフロー図
-
-以下は複数環境を管理するためのフロー図です：
+### 3. 環境管理フロー
 
 ```mermaid
 graph TD
-    A[コード変更] --> B[CI/CDパイプライン]
-    B --> C{ブランチ?}
-    C -->|develop| D[開発環境へデプロイ]
-    C -->|staging| E[ステージング環境へデプロイ]
-    C -->|main| F[本番環境へデプロイ]
-    D --> G[ecspresso deploy --config ecspresso.dev.yml]
-    E --> H[ecspresso deploy --config ecspresso.staging.yml]
-    F --> I[ecspresso deploy --config ecspresso.prod.yml]
-    G --> J[開発環境でテスト]
-    H --> K[ステージング環境でテスト]
-    I --> L[本番環境へのデプロイ完了]
-    J -->|成功| M[ステージングへマージ]
-    K -->|成功| N[本番へマージ]
+  A[共通設定] --> B[環境固有設定]
+  B --> C[テンプレート処理]
+  C --> D[環境ごとのデプロイ]
+  D --> E1[開発環境]
+  D --> E2[ステージング環境]
+  D --> E3[本番環境]
 ```
-
-## Jsonnetを活用した環境管理
-
-v2では、Jsonnet形式の設定ファイルがサポートされ、より柔軟な環境管理が可能になりました：
-
-```jsonnet
-// ecspresso.jsonnet
-local env = std.extVar("env");
-
-{
-  region: "ap-northeast-1",
-  cluster: "my-cluster-" + env,
-  service: "my-service-" + env,
-  task_definition: "ecs-task-def.jsonnet",
-  service_definition: "ecs-service-def.jsonnet",
-  timeout: "10m",
-  plugins: [
-    {
-      name: "ssm",
-    },
-    {
-      name: "secretsmanager",
-    }
-  ]
-}
-```
-
-環境ごとに異なる設定でデプロイする場合：
-
-```bash
-# 開発環境
-ecspresso deploy --config ecspresso.jsonnet --jsonnet --ext-str env=dev
-
-# ステージング環境
-ecspresso deploy --config ecspresso.jsonnet --jsonnet --ext-str env=staging
-
-# 本番環境
-ecspresso deploy --config ecspresso.jsonnet --jsonnet --ext-str env=prod
-```
-
-## 環境固有の変数管理
-
-環境固有の変数を管理するためのベストプラクティスは以下の通りです：
-
-1. **環境変数**: デプロイ時に環境変数を設定
-2. **SSMパラメータストア**: 環境ごとのパラメータをAWS SSMパラメータストアに保存
-3. **SecretsManager**: 機密情報をAWS Secrets Managerに保存
-4. **Terraform**: インフラストラクチャをコードとして管理し、環境ごとに異なる状態を維持
-5. **Jsonnet**: 環境ごとの設定を柔軟に管理
-
-### SSMパラメータストアとSecrets Managerの活用
-
-v2では、SSMパラメータストアとSecrets Managerのプラグインが組み込まれています：
-
-```json
-{
-  "containerDefinitions": [
-    {
-      "name": "app",
-      "environment": [
-        {
-          "name": "DATABASE_URL",
-          "value": "{{ ssm `/{{ env `ENV` }}/database/url` }}"
-        }
-      ],
-      "secrets": [
-        {
-          "name": "API_KEY",
-          "valueFrom": "{{ secretsmanager_arn `{{ env `ENV` }}/api-key` }}"
-        }
-      ]
-    }
-  ]
-}
-```
-
-これにより、環境ごとに異なる設定を簡単に管理できます。
-
-### 外部プラグインの活用
-
-v2では、カスタム外部プラグインを使用して、より柔軟な環境管理が可能になりました：
-
-```yaml
-# ecspresso.yml
-plugins:
-  - name: my-env-plugin
-    command: /path/to/env-plugin
-    config:
-      env: "{{ env `ENV` }}"
-```
-
-外部プラグインは、環境固有の設定を動的に生成するために使用できます。

@@ -8,126 +8,23 @@ nav_order: 2
 
 # インストール方法
 
-ecspressoは、複数の方法でインストールできます。
-
-## Homebrewを使用する（macOSとLinux）
-
-```console
-$ brew install kayac/tap/ecspresso
-```
-
-## asdfを使用する（macOSとLinux）
-
-[asdf](https://asdf-vm.com/)はバージョン管理ツールです。
-
-```console
-$ asdf plugin add ecspresso
-# または
-$ asdf plugin add ecspresso https://github.com/kayac/asdf-ecspresso.git
-
-$ asdf install ecspresso 2.5.0
-$ asdf global ecspresso 2.5.0
-```
-
-## aquaを使用する（macOSとLinux）
-
-[aqua](https://aquaproj.github.io/)はCLIバージョン管理ツールです。
-
-```console
-$ aqua g -i kayac/ecspresso
-```
-
-## バイナリパッケージ
-
-[GitHubのリリースページ](https://github.com/kayac/ecspresso/releases)から直接バイナリをダウンロードできます。
-
-## CircleCI Orbs
-
-CircleCIパイプラインで使用する場合：
-
-```yaml
-version: 2.1
-orbs:
-  ecspresso: fujiwara/ecspresso@2.0.4
-jobs:
-  install:
-    steps:
-      - checkout
-      - ecspresso/install:
-          version: v2.5.0 # または latest
-          # version-file: .ecspresso-version
-          os: linux # または windows または darwin
-          arch: amd64 # または arm64
-      - run:
-          command: |
-            ecspresso version
-```
-
-## GitHub Actions
-
-GitHub Actionsで使用する場合：
-
-```yml
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: kayac/ecspresso@v2
-        with:
-          version: v2.5.0 # または latest
-          # version-file: .ecspresso-version
-      - run: |
-          ecspresso deploy --config ecspresso.yml
-```
-
 ecspressoは複数の方法でインストールできます。
 
-## Homebrew
+## Homebrew（macOS）
 
-macOSユーザーの場合、Homebrewを使用してインストールできます。
+macOSユーザーの場合、Homebrewを使用して簡単にインストールできます：
 
 ```console
 $ brew install kayac/tap/ecspresso
 ```
 
-## asdf
+## バイナリダウンロード
 
-asdfプラグインを使用してインストールする場合：
-
-```console
-$ asdf plugin add ecspresso
-$ asdf install ecspresso latest
-$ asdf global ecspresso latest
-```
-
-## aqua
-
-aquaを使用してインストールする場合：
+[GitHubリリースページ](https://github.com/kayac/ecspresso/releases)から、お使いのプラットフォーム向けの最新バイナリをダウンロードして、PATHの通ったディレクトリに配置します。
 
 ```console
-$ aqua g -i kayac/ecspresso
-```
-
-## GitHub Releases
-
-[GitHub Releases](https://github.com/kayac/ecspresso/releases)から直接バイナリをダウンロードすることもできます。各プラットフォーム向けのバイナリが提供されています：
-
-- Linux (amd64, arm64)
-- macOS (amd64, arm64)
-- Windows (amd64)
-
-```console
-# Linux (amd64)の場合
-$ curl -Lo ecspresso.tar.gz https://github.com/kayac/ecspresso/releases/download/v2.5.0/ecspresso_2.5.0_linux_amd64.tar.gz
-$ tar xzf ecspresso.tar.gz
-$ chmod +x ecspresso
-$ sudo mv ecspresso /usr/local/bin/
-
-# macOS (arm64)の場合
-$ curl -Lo ecspresso.tar.gz https://github.com/kayac/ecspresso/releases/download/v2.5.0/ecspresso_2.5.0_darwin_arm64.tar.gz
-$ tar xzf ecspresso.tar.gz
-$ chmod +x ecspresso
+# Linuxの場合の例
+$ curl -L https://github.com/kayac/ecspresso/releases/download/vX.Y.Z/ecspresso_X.Y.Z_linux_amd64.tar.gz | tar xvz
 $ sudo mv ecspresso /usr/local/bin/
 ```
 
@@ -137,18 +34,27 @@ Dockerイメージも利用可能です：
 
 ```console
 $ docker pull ghcr.io/kayac/ecspresso:latest
-$ docker run --rm -it -v $HOME/.aws:/root/.aws -v $(pwd):/work -w /work ghcr.io/kayac/ecspresso:latest [command]
+$ docker run --rm -it -v $HOME/.aws:/root/.aws -v $(pwd):/work ghcr.io/kayac/ecspresso:latest [command]
 ```
 
-## CI/CD環境での利用
+## GitHub Actions
 
-### CircleCI Orbs
+GitHub Actionsでecspressoを使用する場合は、ワークフローファイルに以下のように記述します：
 
-CircleCIで使用する場合、Orbsが利用可能です：
+```yaml
+steps:
+  - uses: kayac/ecspresso@v2
+    with:
+      command: deploy
+```
+
+## CircleCI Orb
+
+CircleCIでは、ecspresso orbを使用できます：
 
 ```yaml
 orbs:
-  ecspresso: fujiwara/ecspresso@2.0
+  ecspresso: kayac/ecspresso@1.0.0
 
 jobs:
   deploy:
@@ -156,26 +62,8 @@ jobs:
     steps:
       - checkout
       - ecspresso/install
-      - run:
-          name: Deploy
-          command: |
-            ecspresso deploy --config ecspresso.yml
-```
-
-### GitHub Actions
-
-GitHub Actionsで使用する場合：
-
-```yaml
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: kayac/ecspresso-action@v2
-        with:
-          version: v2.5.0
-      - run: ecspresso deploy
+      - ecspresso/deploy:
+          config: config.yaml
 ```
 
 ## バージョン確認
@@ -184,69 +72,4 @@ jobs:
 
 ```console
 $ ecspresso version
-ecspresso v2.5.0
-```
-
-## 必要な権限
-
-ecspressoを使用するには、AWS認証情報が必要です。以下の方法で認証情報を設定できます：
-
-- AWS CLI設定ファイル（`~/.aws/credentials`）
-- 環境変数（`AWS_ACCESS_KEY_ID`、`AWS_SECRET_ACCESS_KEY`）
-- IAMロール（EC2インスタンスプロファイル、ECSタスクロールなど）
-
-必要なIAM権限は、使用するecspressoのコマンドによって異なります。一般的に必要な権限には以下が含まれます：
-
-- `ecs:*` - ECSリソースの管理
-- `iam:PassRole` - タスク実行ロールとタスクロールの使用
-- `cloudwatch:*` - ログの取得と監視
-- `codedeploy:*` - Blue/Greenデプロイを使用する場合
-
-詳細な権限設定については、各コマンドのドキュメントを参照してください。
-
-## Homebrew
-
-macOSユーザーの場合、Homebrewを使用してインストールできます。
-
-```console
-$ brew install kayac/tap/ecspresso
-```
-
-## asdf
-
-asdfプラグインを使用してインストールする場合：
-
-```console
-$ asdf plugin add ecspresso
-$ asdf install ecspresso latest
-$ asdf global ecspresso latest
-```
-
-## aqua
-
-aquaを使用してインストールする場合：
-
-```console
-$ aqua g -i kayac/ecspresso
-```
-
-## GitHub Releases
-
-[GitHub Releases](https://github.com/kayac/ecspresso/releases)から直接バイナリをダウンロードすることもできます。
-
-## CircleCI Orbs
-
-CircleCIで使用する場合、Orbsが利用可能です：
-
-```yaml
-orbs:
-  ecspresso: fujiwara/ecspresso@2.0
-```
-
-## GitHub Actions
-
-GitHub Actionsで使用する場合：
-
-```yaml
-- uses: kayac/ecspresso-action@v2
 ```
