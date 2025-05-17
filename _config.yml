@@ -1,2 +1,6 @@
-title: My Documentation
-theme: minima
+title: My Docs
+remote_theme: just-the-docs/just-the-docs
+color_scheme: light
+
+# その他オプション
+search_enabled: true
