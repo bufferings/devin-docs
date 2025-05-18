@@ -1,113 +1,111 @@
 ---
 layout: default
-title: 設定・初期化コマンド
+title: init, render, verify
 parent: コマンドリファレンス
 grand_parent: ecspresso
 nav_order: 3
 ---
 
-# 設定・初期化コマンド
+# 設定関連コマンド
 
 ## init
 
-既存のECSサービスから設定ファイルを作成します。
+`init`コマンドは、既存のECSサービスから構成ファイルを作成するために使用します。
+
+### 使用方法
 
 ```
-Usage: ecspresso init [flags]
-
-Flags:
-  --region=REGION              AWSリージョン
-  --cluster=CLUSTER            ECSクラスター名
-  --service=SERVICE            ECSサービス名
-  --task-definition=ARN        タスク定義ARN（サービスが存在しない場合）
-  --config=FILE                設定ファイル名（デフォルト：ecspresso.yml）
-  --service-definition=FILE    サービス定義ファイル名（デフォルト：ecs-service-def.json）
-  --task-definition-path=FILE  タスク定義ファイル名（デフォルト：ecs-task-def.json）
-  --skip-task-definition       タスク定義の取得をスキップ
-  --update                     既存の設定ファイルを更新
-  --no-save-task-definition    タスク定義ファイルを保存しない
-  --output-format=FORMAT       出力フォーマット（json, yaml, jsonnet）（デフォルト：json）
+ecspresso init [オプション]
 ```
 
-### 例
+### オプション
 
-基本的な初期化：
-```console
-$ ecspresso init --region ap-northeast-1 --cluster default --service myservice
-```
+| オプション | 説明 | デフォルト値 |
+|------------|------|--------------|
+| `--region=REGION` | AWS リージョン | - |
+| `--cluster=CLUSTER` | ECS クラスター名 | - |
+| `--service=SERVICE` | ECS サービス名 | - |
+| `--config=CONFIG` | 設定ファイルパス | `ecspresso.yml` |
+| `--task-definition=TASK-DEF` | タスク定義ファイルパス | - |
+| `--service-definition=SVC-DEF` | サービス定義ファイルパス | - |
 
-Jsonnet形式で出力：
-```console
-$ ecspresso init --region ap-northeast-1 --cluster default --service myservice --output-format=jsonnet
-```
+### 使用例
 
-既存の設定を更新：
-```console
-$ ecspresso init --update
+```bash
+$ ecspresso init --region=ap-northeast-1 --cluster=my-cluster --service=my-service
 ```
 
 ## render
 
-設定ファイル、サービス定義、またはタスク定義ファイルを標準出力に出力します。
+`render`コマンドは、設定、サービス定義、またはタスク定義ファイルをSTDOUTにレンダリングするために使用します。
+
+### 使用方法
 
 ```
-Usage: ecspresso render [flags]
-
-Flags:
-  --config                設定ファイルを出力
-  --service-definition    サービス定義を出力
-  --task-definition      タスク定義を出力
-  --output-format=FORMAT 出力フォーマット（json, yaml, jsonnet）（デフォルト：json）
+ecspresso render [オプション]
 ```
 
-### 例
+### オプション
 
-タスク定義をYAML形式で出力：
-```console
-$ ecspresso render --task-definition --output-format=yaml
+| オプション | 説明 | デフォルト値 |
+|------------|------|--------------|
+| `--config` | 設定ファイルをレンダリングします | `false` |
+| `--service-definition` | サービス定義をレンダリングします | `false` |
+| `--task-definition` | タスク定義をレンダリングします | `false` |
+
+### 使用例
+
+設定ファイルをレンダリング:
+```bash
+$ ecspresso render --config
 ```
 
-サービス定義を出力：
-```console
+サービス定義をレンダリング:
+```bash
 $ ecspresso render --service-definition
+```
+
+タスク定義をレンダリング:
+```bash
+$ ecspresso render --task-definition
 ```
 
 ## verify
 
-設定内のリソースを検証します。
+`verify`コマンドは、設定内のリソースを検証するために使用します。
+
+### 使用方法
 
 ```
-Usage: ecspresso verify [flags]
-
-Flags:
-  --[no-]get-secrets    ParameterStoreまたはSecretsManagerからシークレットを取得（デフォルト：true）
-  --[no-]put-logs       CloudWatchLogsにログを出力（デフォルト：true）
-  --[no-]cache          キャッシュを使用（デフォルト：true）
+ecspresso verify [オプション]
 ```
 
-### 例
+### オプション
 
-リソース検証の実行：
-```console
+| オプション | 説明 | デフォルト値 |
+|------------|------|--------------|
+| `--task-definition` | タスク定義のみを検証します | `false` |
+| `--service-definition` | サービス定義のみを検証します | `false` |
+| `--deployment-group` | CodeDeployのデプロイメントグループも検証します | `false` |
+
+### 使用例
+
+すべての設定を検証:
+```bash
 $ ecspresso verify
 ```
 
-シークレット取得をスキップして検証：
-```console
-$ ecspresso verify --no-get-secrets
+タスク定義のみを検証:
+```bash
+$ ecspresso verify --task-definition
 ```
 
-### 検証フロー
+サービス定義のみを検証:
+```bash
+$ ecspresso verify --service-definition
+```
 
-```mermaid
-graph TD
-    A[開始] --> B[タスク定義の検証]
-    B --> C[サービス定義の検証]
-    C --> D[クラスターの検証]
-    D --> E[ロールの検証]
-    E --> F[イメージの検証]
-    F --> G[ログ設定の検証]
-    G --> H[シークレットの検証]
-    H --> I[環境ファイルの検証]
-    I --> J[完了]
+CodeDeployのデプロイメントグループも含めて検証:
+```bash
+$ ecspresso verify --deployment-group
 ```

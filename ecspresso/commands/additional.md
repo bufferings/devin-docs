@@ -1,6 +1,6 @@
 ---
 layout: default
-title: その他のコマンド
+title: run, register, appspec, その他
 parent: コマンドリファレンス
 grand_parent: ecspresso
 nav_order: 5
@@ -8,88 +8,160 @@ nav_order: 5
 
 # その他のコマンド
 
+## run
+
+`run`コマンドは、タスクを実行するために使用します。
+
+### 使用方法
+
+```
+ecspresso run [オプション]
+```
+
+### オプション
+
+| オプション | 説明 | デフォルト値 |
+|------------|------|--------------|
+| `--dry-run` | 実行せずに表示 | `false` |
+| `--task-def=TASK-DEF` | 実行するタスク定義ファイル | - |
+| `--[no-]wait` | タスクの完了を待機 | `true` |
+| `--overrides=JSON` | タスク定義のオーバーライド (JSON形式) | - |
+| `--count=N` | 実行するタスクの数 | `1` |
+| `--launch-type=TYPE` | 起動タイプ (EC2,FARGATE) | - |
+| `--network-configuration=JSON` | ネットワーク設定 (JSON形式) | - |
+| `--cluster=CLUSTER` | ECSクラスター名 | 設定ファイルの値 |
+| `--platform-version=VERSION` | プラットフォームバージョン | - |
+| `--group=GROUP` | タスクグループ | - |
+| `--container-name=NAME` | --commands引数用のコンテナ名 | - |
+| `--commands=COMMANDS` | コンテナに渡すコマンド (カンマ区切り) | - |
+
+### 使用例
+
+基本的なタスク実行:
+```bash
+$ ecspresso run
+```
+
+特定のタスク定義ファイルを使用:
+```bash
+$ ecspresso run --task-def=custom-task-def.json
+```
+
+タスク定義をオーバーライド:
+```bash
+$ ecspresso run --overrides='{"containerOverrides":[{"name":"app","command":["echo","hello"]}]}'
+```
+
+複数のタスクを実行:
+```bash
+$ ecspresso run --count=3
+```
+
 ## register
 
-タスク定義を登録します。
+`register`コマンドは、タスク定義を登録するために使用します。
+
+### 使用方法
 
 ```
-Usage: ecspresso register [flags]
-
-Flags:
-  --dry-run             ドライラン（実際の変更は行わない）
-  --output=FORMAT       出力フォーマット（json, yaml, jsonnet）（デフォルト：json）
+ecspresso register [オプション]
 ```
 
-### 例
+### オプション
 
-タスク定義の登録：
-```console
+| オプション | 説明 | デフォルト値 |
+|------------|------|--------------|
+| `--dry-run` | 実行せずに表示 | `false` |
+| `--latest-task-definition` | 最新のタスク定義を使用 | `false` |
+
+### 使用例
+
+タスク定義を登録:
+```bash
 $ ecspresso register
 ```
 
-## deregister
-
-タスク定義の登録を解除します。
-
-```
-Usage: ecspresso deregister [flags]
-
-Flags:
-  --dry-run             ドライラン（実際の変更は行わない）
-  --revision=N          登録解除するリビジョン番号（デフォルト：現在のリビジョン）
-```
-
-### 例
-
-現在のタスク定義の登録解除：
-```console
-$ ecspresso deregister
-```
-
-特定リビジョンの登録解除：
-```console
-$ ecspresso deregister --revision=10
-```
-
-## delete
-
-サービスを削除します。
-
-```
-Usage: ecspresso delete [flags]
-
-Flags:
-  --dry-run             ドライラン（実際の変更は行わない）
-  --force               確認なしで削除
-```
-
-### 例
-
-サービスの削除：
-```console
-$ ecspresso delete
+ドライランで表示:
+```bash
+$ ecspresso register --dry-run
 ```
 
 ## appspec
 
-CodeDeployのAppSpec YAMLを標準出力に出力します。
+`appspec`コマンドは、CodeDeployのAppSpecをSTDOUTに出力するために使用します。
+
+### 使用方法
 
 ```
-Usage: ecspresso appspec [flags]
-
-Flags:
-  --task-definition=ARN  使用するタスク定義ARN（デフォルト：現在のタスク定義）
-  --output=FILE          出力ファイル（デフォルト：標準出力）
+ecspresso appspec [オプション]
 ```
 
-### 例
+### オプション
 
-AppSpecの生成：
-```console
-$ ecspresso appspec > appspec.yaml
+| オプション | 説明 | デフォルト値 |
+|------------|------|--------------|
+| `--task-definition=ARN` | タスク定義ARN | - |
+| `--revision=N` | タスク定義のリビジョン | `0` |
+
+### 使用例
+
+AppSpecを出力:
+```bash
+$ ecspresso appspec
 ```
 
-特定のタスク定義を使用したAppSpec生成：
-```console
-$ ecspresso appspec --task-definition=arn:aws:ecs:ap-northeast-1:123456789012:task-definition/myapp:10
+特定のタスク定義ARNを使用:
+```bash
+$ ecspresso appspec --task-definition=arn:aws:ecs:ap-northeast-1:123456789012:task-definition/my-task:1
+```
+
+## その他のコマンド
+
+### delete
+
+サービスを削除します:
+```bash
+$ ecspresso delete
+```
+
+### deregister
+
+タスク定義を登録解除します:
+```bash
+$ ecspresso deregister
+```
+
+### diff
+
+タスク定義、サービス定義と現在実行中のサービスとタスク定義の差分を表示します:
+```bash
+$ ecspresso diff
+```
+
+### refresh
+
+サービスを更新します（deploy --skip-task-definition --force-new-deployment --no-update-serviceと同等）:
+```bash
+$ ecspresso refresh
+```
+
+### revisions
+
+タスク定義のリビジョンを表示します:
+```bash
+$ ecspresso revisions
+```
+
+### rollback
+
+サービスをロールバックします:
+```bash
+$ ecspresso rollback
+```
+
+### scale
+
+サービスをスケールします（deploy --skip-task-definition --no-update-serviceと同等）:
+```bash
+$ ecspresso scale --tasks=5
 ```

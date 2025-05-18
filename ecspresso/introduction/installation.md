@@ -8,41 +8,45 @@ nav_order: 2
 
 # インストール方法
 
-ecspressoは複数の方法でインストールできます。
+ecspressoは複数の方法でインストールすることができます。
 
-## Homebrew（macOS）
+## バイナリリリース
 
-macOSユーザーは、Homebrewを使用して簡単にインストールできます。
+[GitHubのリリースページ](https://github.com/kayac/ecspresso/releases)から、お使いのプラットフォーム用の最新のバイナリをダウンロードしてください。
 
-```console
-$ brew install kayac/tap/ecspresso
-```
+```bash
+# macOSの場合
+$ curl -LO https://github.com/kayac/ecspresso/releases/download/v2.x.x/ecspresso_2.x.x_darwin_amd64.zip
+$ unzip ecspresso_2.x.x_darwin_amd64.zip
+$ mv ecspresso /usr/local/bin/
 
-## バイナリのダウンロード
-
-[GitHub Releases](https://github.com/kayac/ecspresso/releases)から直接バイナリをダウンロードすることもできます。
-
-```console
-$ curl -LO https://github.com/kayac/ecspresso/releases/download/v2.X.X/ecspresso_v2.X.X_linux_amd64.tar.gz
-$ tar xzf ecspresso_v2.X.X_linux_amd64.tar.gz
+# Linuxの場合
+$ curl -LO https://github.com/kayac/ecspresso/releases/download/v2.x.x/ecspresso_2.x.x_linux_amd64.tar.gz
+$ tar xzf ecspresso_2.x.x_linux_amd64.tar.gz
 $ mv ecspresso /usr/local/bin/
 ```
 
-※ バージョンとプラットフォームに応じて適切なファイル名を指定してください。
+## Homebrewを使用する場合（macOS）
 
-## Dockerイメージ
-
-Dockerイメージも利用可能です。
-
-```console
-$ docker pull kayac/ecspresso:latest
-$ docker run --rm -it -v $PWD:/work -w /work kayac/ecspresso:latest [コマンド]
+```bash
+$ brew install kayac/tap/ecspresso
 ```
 
-## 動作確認
+## Docker
 
-インストール後、以下のコマンドでバージョンを確認できます。
+Docker Imageも利用可能です。
 
-```console
+```bash
+$ docker pull ghcr.io/kayac/ecspresso:v2
+$ docker run --rm -it -v $(pwd):/work -w /work ghcr.io/kayac/ecspresso:v2 --help
+```
+
+## インストールの確認
+
+インストールが成功したことを確認するには：
+
+```bash
 $ ecspresso version
 ```
+
+バージョン情報が表示されれば、インストールは成功しています。
