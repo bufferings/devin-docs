@@ -1,107 +1,105 @@
 ---
 layout: default
-title: 監視・分析コマンド
+title: status, wait, exec
 parent: コマンドリファレンス
 grand_parent: ecspresso
 nav_order: 4
 ---
 
-# 監視・分析コマンド
+# モニタリング関連コマンド
 
 ## status
 
-サービスの現在の状態を表示します。
+`status`コマンドは、サービスのステータスを表示するために使用します。
+
+### 使用方法
 
 ```
-Usage: ecspresso status [flags]
-
-Flags:
-  --events=N            表示するイベント数（デフォルト：10）
-  --tasks               タスク一覧も表示
-  --quiet               簡易出力
-  --wait-until=STATUS   指定ステータスになるまで待機（デフォルト：NONE）
+ecspresso status [オプション]
 ```
 
-### 例
+### オプション
 
-サービスステータスの表示：
-```console
+| オプション | 説明 | デフォルト値 |
+|------------|------|--------------|
+| `--events=N` | 表示するイベント数 | `10` |
+
+### 使用例
+
+```bash
 $ ecspresso status
 ```
 
-タスク一覧も含めて表示：
-```console
-$ ecspresso status --tasks
-```
-
-## diff
-
-タスク定義、サービス定義と現在実行中のサービスおよびタスク定義との差分を表示します。
-
-```
-Usage: ecspresso diff [flags]
-
-Flags:
-  --[no-]unified        統一差分フォーマット（デフォルト：true）
-  --external=COMMAND    差分フォーマット用の外部コマンド
-```
-
-### 例
-
-差分の表示：
-```console
-$ ecspresso diff
-```
-
-外部コマンドを使用した差分表示：
-```console
-$ ecspresso diff --external="colordiff -u"
+イベント数を変更して表示:
+```bash
+$ ecspresso status --events=20
 ```
 
 ## wait
 
-サービスが安定するまで待機します。
+`wait`コマンドは、サービスが安定するまで待機するために使用します。
+
+### 使用方法
 
 ```
-Usage: ecspresso wait [flags]
-
-Flags:
-  --timeout=DURATION    タイムアウト時間
-  --service-name=NAME   サービス名（設定ファイルと異なる場合）
+ecspresso wait [オプション]
 ```
 
-### 例
+### オプション
 
-サービスが安定するまで待機：
-```console
+| オプション | 説明 | デフォルト値 |
+|------------|------|--------------|
+| `--timeout=DURATION` | タイムアウト | - |
+| `--wait-until=STATE` | 待機する状態 (stable,deployed) | `stable` |
+
+### 使用例
+
+サービスが安定するまで待機:
+```bash
 $ ecspresso wait
 ```
 
-特定のサービスが安定するまで待機：
-```console
-$ ecspresso wait --service-name=myservice
+5分のタイムアウトを設定して待機:
+```bash
+$ ecspresso wait --timeout=5m
 ```
 
-## revisions
-
-タスク定義のリビジョン履歴を表示します。
-
-```
-Usage: ecspresso revisions [flags]
-
-Flags:
-  --output=FORMAT       出力フォーマット（table, json, tsv）（デフォルト：table）
-  --max-items=N         表示する最大項目数（デフォルト：100）
+デプロイが完了するまで待機:
+```bash
+$ ecspresso wait --wait-until=deployed
 ```
 
-### 例
+## exec
 
-リビジョン履歴の表示：
-```console
-$ ecspresso revisions
+`exec`コマンドは、タスク上でコマンドを実行するために使用します。
+
+### 使用方法
+
+```
+ecspresso exec [オプション] -- COMMAND...
 ```
 
-JSON形式でリビジョン履歴を表示：
-```console
-$ ecspresso revisions --output=json
+### オプション
+
+| オプション | 説明 | デフォルト値 |
+|------------|------|--------------|
+| `--id=ID` | タスクID | - |
+| `--container=CONTAINER` | コンテナ名 | - |
+| `--dry-run` | 実行せずに表示 | `false` |
+
+### 使用例
+
+最新のタスクでコマンドを実行:
+```bash
+$ ecspresso exec -- ls -la
+```
+
+特定のタスクでコマンドを実行:
+```bash
+$ ecspresso exec --id=arn:aws:ecs:ap-northeast-1:123456789012:task/cluster-name/abcdef0123456789 -- ps aux
+```
+
+特定のコンテナでコマンドを実行:
+```bash
+$ ecspresso exec --container=nginx -- nginx -t
 ```

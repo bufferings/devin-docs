@@ -8,70 +8,55 @@ nav_order: 1
 
 # 基本的な使い方
 
-ここでは、ecspressoを使用して基本的なECSサービス管理を行う方法を説明します。
+## 設定ファイルの作成
 
-## 設定ファイルの初期化
+既存のECSサービスから設定ファイルを生成するには、`init`コマンドを使用します：
 
-既存のECSサービスから設定ファイルを作成します。
-
-```console
+```bash
 $ ecspresso init --region ap-northeast-1 --cluster your-cluster --service your-service
 ```
 
-これにより、カレントディレクトリに`ecspresso.yml`、`ecs-service-def.json`、`ecs-task-def.json`が作成されます。
+これにより、`ecspresso.yml`、`ecs-service-def.json`、`ecs-task-def.json`が生成されます。
+
+## 設定の検証
+
+設定が正しいことを確認するには、`verify`コマンドを使用します：
+
+```bash
+$ ecspresso verify
+```
 
 ## サービスのデプロイ
 
-`deploy`コマンドを使用して、サービスをデプロイします。
+サービスをデプロイするには、`deploy`コマンドを使用します：
 
-```console
+```bash
 $ ecspresso deploy
 ```
 
-デプロイ前に差分を確認したい場合は、`diff`コマンドを使用します。
+## サービスのステータス確認
 
-```console
-$ ecspresso diff
+サービスのステータスを確認するには、`status`コマンドを使用します：
+
+```bash
+$ ecspresso status
 ```
 
 ## タスクの実行
 
-`run`コマンドを使用して、ワンタイムタスクを実行できます。
+一時的なタスクを実行するには、`run`コマンドを使用します：
 
-```console
+```bash
 $ ecspresso run
 ```
 
-特定のタスク定義を使用する場合：
-
-```console
-$ ecspresso run --task-def=custom-task-def.json
-```
-
-## サービスステータスの確認
-
-`status`コマンドを使用して、サービスの現在の状態を確認できます。
-
-```console
-$ ecspresso status
-```
-
-## サービスのロールバック
-
-問題が発生した場合、以前のバージョンにロールバックできます。
-
-```console
-$ ecspresso rollback
-```
-
-## 基本的なワークフロー図
+## 設定の流れ
 
 ```mermaid
 graph TD
-    A[ecspresso init] --> B[設定ファイル編集]
-    B --> C[ecspresso diff]
-    C --> D[ecspresso deploy]
-    D --> E[ecspresso status]
-    E -->|問題発生| F[ecspresso rollback]
-    E -->|別のタスク実行| G[ecspresso run]
+    A[ecspresso.yml] --> B[タスク定義]
+    A --> C[サービス定義]
+    B --> D[ECSタスク]
+    C --> E[ECSサービス]
+    D --> E
 ```
