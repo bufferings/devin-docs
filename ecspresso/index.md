@@ -3,36 +3,36 @@ layout: default
 title: ecspresso
 nav_order: 1
 has_children: true
-permalink: /ecspresso
 ---
 
 # ecspresso ドキュメント
 
-Amazon ECS向けのデプロイツール「ecspresso」の公式ドキュメントへようこそ。
+ecspressoは、AWS Elastic Container Service (ECS)のデプロイと管理を簡素化するためのコマンドラインツールです。このドキュメントでは、ecspressoの使い方と機能について詳しく説明します。
 
-ecspressoは、Amazon ECSサービスとタスクを簡単に管理するためのツールです。コード化されたタスク定義とサービス定義を使用して、ECSリソースをデプロイ、更新、監視することができます。
+## 目次
+
+1. [はじめに](introduction/)
+   - [ecspressoとは](introduction/about.html)
+   - [インストール方法](introduction/installation.html)
+2. [クイックスタート](quickstart/)
+   - [基本的な使い方](quickstart/basic-usage.html)
+   - [よくあるユースケース](quickstart/use-cases.html)
+3. [コマンドリファレンス](commands/)
+4. [実践ガイド](practical/)
+   - [CI/CDパイプラインとの統合](practical/cicd.html)
+   - [複数環境での運用](practical/multi-env.html)
+   - [大規模サービスの管理](practical/large-scale.html)
+5. [トラブルシューティング](troubleshooting/)
 
 ## 主な機能
 
-- **シンプルなデプロイ**: 既存のECSサービスを簡単に更新
-- **テンプレート機能**: 環境変数を使用して設定をカスタマイズ
-- **Blue/Greenデプロイ**: AWS CodeDeployを使用した無停止デプロイ
-- **タスク管理**: ワンタイムタスクの実行とログ監視
-- **リソース検証**: サービス設定の検証とトラブルシューティング
-- **Jsonnetサポート**: 高度な設定管理
+- ECSサービスのデプロイと管理
+- タスク定義とサービス定義の管理
+- ブルー/グリーンデプロイメント（AWS CodeDeploy連携）
+- 一時的なタスクの実行
+- サービスの状態監視
+- 設定ファイルの検証
 
-## アーキテクチャ図
+## サポートとフィードバック
 
-```mermaid
-graph TD
-    A[ecspresso] --> B[AWS ECS]
-    A --> C[AWS CodeDeploy]
-    A --> D[CloudWatch Logs]
-    A --> E[AWS SecretsManager]
-    A --> F[AWS SSM]
-    B --> G[ECSサービス]
-    B --> H[ECSタスク]
-    C --> I[Blue/Greenデプロイ]
-```
-
-詳細については、各セクションを参照してください。
+ecspressoは[GitHub](https://github.com/kayac/ecspresso)でオープンソースとして開発されています。バグ報告や機能リクエストは、GitHubのIssueで受け付けています。
