@@ -8,54 +8,120 @@ nav_order: 2
 
 # インストール方法
 
-ecspressoは、複数の方法でインストールできます。
+ecspressoは様々な方法でインストールできます。ここでは、各プラットフォームでのインストール方法を説明します。
 
-## バイナリのダウンロード
+## Homebrew（macOSとLinux）
 
-最も簡単な方法は、GitHub Releasesから事前にビルドされたバイナリをダウンロードすることです。
-
-```bash
-# 最新リリースをダウンロード（Linux/amd64の例）
-curl -sL https://github.com/kayac/ecspresso/releases/download/latest/ecspresso_linux_amd64.tar.gz | tar xzC /tmp
-sudo install /tmp/ecspresso /usr/local/bin/ecspresso
-```
-
-macOSユーザーの場合:
+macOSとLinuxでは、Homebrewを使用して簡単にインストールできます。
 
 ```bash
-curl -sL https://github.com/kayac/ecspresso/releases/download/latest/ecspresso_darwin_amd64.tar.gz | tar xzC /tmp
-sudo install /tmp/ecspresso /usr/local/bin/ecspresso
+brew install kayac/tap/ecspresso
 ```
 
-## パッケージマネージャーを使用する
+## asdf（macOSとLinux）
 
-### aquaを使用する場合
+[asdf](https://asdf-vm.com/)はバージョン管理ツールで、ecspressoをインストールするために使用できます。
+
+```bash
+# プラグインの追加
+asdf plugin add ecspresso
+# または
+asdf plugin add ecspresso https://github.com/kayac/asdf-ecspresso.git
+
+# インストール
+asdf install ecspresso 2.3.0
+asdf global ecspresso 2.3.0
+```
+
+## aqua（macOSとLinux）
+
+[aqua](https://aquaproj.github.io/)はCLIバージョン管理ツールで、ecspressoをインストールするために使用できます。
 
 ```bash
 aqua g -i kayac/ecspresso
 ```
 
-### asdfを使用する場合
+## バイナリパッケージ
 
-```bash
-asdf plugin add ecspresso
-asdf install ecspresso latest
-asdf global ecspresso latest
+各プラットフォーム用のバイナリパッケージは[GitHubのリリースページ](https://github.com/kayac/ecspresso/releases)からダウンロードできます。
+
+1. リリースページから適切なバージョンとプラットフォーム用のバイナリをダウンロード
+2. ダウンロードしたファイルを解凍
+3. 実行可能ファイルをPATHの通ったディレクトリに配置
+
+## CircleCI Orbs
+
+CircleCIでecspressoを使用する場合は、Orbsを利用できます。
+
+```yaml
+version: 2.1
+orbs:
+  ecspresso: fujiwara/ecspresso@2.0.4
+jobs:
+  install:
+    steps:
+      - checkout
+      - ecspresso/install:
+          version: v2.3.0 # または latest
+          # version-file: .ecspresso-version
+          os: linux # または windows または darwin
+          arch: amd64 # または arm64
+      - run:
+          command: |
+            ecspresso version
 ```
 
-## ソースからビルドする
+`version: latest`は各Orbバージョンで異なるバージョンのecspressoをインストールします：
+- fujiwara/ecspresso@0.0.15
+  - 最新のリリースバージョン（v2以降）
+- fujiwara/ecspresso@1.0.0
+  - v1.xの最新バージョン
+- fujiwara/ecspresso@2.0.3
+  - v2.xの最新バージョン
 
-Goがインストールされている場合は、ソースからビルドすることもできます：
+注意: 新しいバージョンのecspressoがリリースされると予期しない動作を引き起こす可能性があるため、`version: latest`の使用は推奨されません。
 
-```bash
-git clone https://github.com/kayac/ecspresso.git
-cd ecspresso
-make install
+Orb `fujiwara/ecspresso@2.0.2`は`version-file: path/to/file`をサポートしており、ファイルで指定されたecspressoバージョンをインストールします。このバージョン番号には`v`プレフィックスはありません（例：`2.0.0`）。
+
+## GitHub Actions
+
+GitHub Actionsでecspressoを使用する場合は、Action `kayac/ecspresso@v2`を利用できます。このアクションはLinux(x86_64)用のecspressoバイナリを/usr/local/binにインストールします。
+
+```yaml
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: kayac/ecspresso@v2
+        with:
+          version: v2.3.0 # または latest
+          # version-file: .ecspresso-version
+      - run: |
+          ecspresso deploy --config ecspresso.yml
 ```
 
-## インストールの確認
+ecspressoの最新バージョンを使用するには、パラメータ"latest"を渡します。
 
-インストールが成功したことを確認するには、以下のコマンドを実行します：
+```yaml
+      - uses: kayac/ecspresso@v2
+        with:
+          version: latest
+```
+
+`version: latest`は各Actionバージョンで異なるバージョンのecspressoをインストールします：
+- kayac/ecspresso@v1
+  - v1.xの最新バージョン
+- kayac/ecspresso@v2
+  - v2.xの最新バージョン
+
+注意: 新しいバージョンのecspressoがリリースされると予期しない動作を引き起こす可能性があるため、`version: latest`の使用は推奨されません。
+
+Action `kayac/ecspresso@v2`は`version-file: path/to/file`をサポートしており、ファイルで指定されたecspressoバージョンをインストールします。このバージョン番号には`v`プレフィックスはありません（例：`2.3.0`）。
+
+## インストール確認
+
+インストールが成功したかどうかを確認するには、以下のコマンドを実行します：
 
 ```bash
 ecspresso version

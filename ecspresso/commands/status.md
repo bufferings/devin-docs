@@ -8,60 +8,122 @@ nav_order: 3
 
 # status
 
-`status`コマンドは、ECSサービスの現在の状態を表示するために使用します。
+`status`コマンドは、ECSサービスの現在のステータスを表示します。
 
 ## 基本的な使い方
 
 ```bash
-ecspresso status [オプション]
+ecspresso status --config CONFIG_FILE
 ```
 
 ## オプション
 
 | オプション | 説明 | デフォルト値 |
-|------------|------|------------|
-| `--events N` | 表示するイベント数 | 10 |
-
-## 使用例
-
-### 基本的な使用法
-
-```bash
-ecspresso status
-```
-
-### より多くのイベントを表示
-
-```bash
-ecspresso status --events 20
-```
-
-## 出力例
-
-```
-Service: myapp
-Cluster: application
-TaskDefinition: myapp:10
-Deployments:
-  PRIMARY myapp:10 desired=2 pending=0 running=2
-TaskSets:
-AutoScaling:
-  ScalableTarget - MIN: 1 MAX: 4
-  ScalingPolicy - CPU_UTILIZATION - Target: 75.0%
-Events:
-  2023-05-01 12:34:56 (service myapp) has reached a steady state.
-  2023-05-01 12:33:45 (service myapp) has begun draining connections on 1 tasks.
-  2023-05-01 12:32:34 (service myapp) registered 1 new tasks.
-```
+|------------|------|-------------|
+| `--config` | 設定ファイルのパス | `ecspresso.yml` |
+| `--events` | サービスイベントを表示するかどうか | `false` |
+| `--output` | 出力形式（table, json, yaml） | `table` |
 
 ## 詳細
 
-`status`コマンドは以下の情報を表示します：
+`status`コマンドは、以下の情報を表示します：
 
-- サービス名、クラスター名、タスク定義
-- デプロイメント状況（デザイアカウント、実行中タスク数など）
-- タスクセット情報（CodeDeployを使用している場合）
-- オートスケーリング設定（設定されている場合）
-- 最近のサービスイベント
+1. サービスの基本情報（名前、クラスター、ステータス）
+2. デプロイメント情報（実行中のタスク数、保留中のタスク数）
+3. タスク定義情報（ARN、リビジョン）
+4. ネットワーク設定
+5. ロードバランサー設定
+6. Auto Scaling設定（有効な場合）
+7. サービスイベント（`--events`オプションが指定されている場合）
 
-この情報は、サービスの現在の状態を確認し、問題を診断するのに役立ちます。
+## 出力例
+
+### テーブル形式（デフォルト）
+
+```
+Service: myservice
+Cluster: default
+Status: ACTIVE
+Desired: 2
+Running: 2
+Pending: 0
+TaskDefinition: arn:aws:ecs:ap-northeast-1:123456789012:task-definition/myservice:10
+```
+
+### JSON形式
+
+```json
+{
+  "service": {
+    "serviceArn": "arn:aws:ecs:ap-northeast-1:123456789012:service/default/myservice",
+    "serviceName": "myservice",
+    "clusterArn": "arn:aws:ecs:ap-northeast-1:123456789012:cluster/default",
+    "status": "ACTIVE",
+    "desiredCount": 2,
+    "runningCount": 2,
+    "pendingCount": 0,
+    "taskDefinition": "arn:aws:ecs:ap-northeast-1:123456789012:task-definition/myservice:10",
+    "deploymentConfiguration": {
+      "deploymentCircuitBreaker": {
+        "enable": false,
+        "rollback": false
+      },
+      "maximumPercent": 200,
+      "minimumHealthyPercent": 100
+    },
+    "deployments": [
+      {
+        "id": "ecs-svc/1234567890123456789",
+        "status": "PRIMARY",
+        "taskDefinition": "arn:aws:ecs:ap-northeast-1:123456789012:task-definition/myservice:10",
+        "desiredCount": 2,
+        "pendingCount": 0,
+        "runningCount": 2,
+        "createdAt": "2023-01-01T00:00:00Z",
+        "updatedAt": "2023-01-01T00:00:00Z"
+      }
+    ]
+  }
+}
+```
+
+## 使用例
+
+### 基本的な使用例
+
+```bash
+ecspresso status --config ecspresso.yml
+```
+
+### サービスイベントを表示する例
+
+```bash
+ecspresso status --config ecspresso.yml --events
+```
+
+### JSON形式で出力する例
+
+```bash
+ecspresso status --config ecspresso.yml --output json
+```
+
+### YAML形式で出力する例
+
+```bash
+ecspresso status --config ecspresso.yml --output yaml
+```
+
+## ワークフロー
+
+```mermaid
+graph TD
+    A[ecspresso status] --> B[設定ファイル読み込み]
+    B --> C[AWSからサービス情報を取得]
+    C --> D[サービス情報を表示]
+    C --> E{--eventsオプションが指定されているか}
+    E -->|Yes| F[サービスイベントを取得]
+    F --> G[サービスイベントを表示]
+    E -->|No| H[終了]
+    D --> H
+    G --> H
+```
