@@ -1,86 +1,88 @@
 ---
 layout: default
 title: verify
-nav_order: 17
 parent: コマンドリファレンス
-grand_parent: ecspresso
+nav_order: 17
 ---
 
 # verify
 
-`verify`コマンドは、設定内のリソースを検証するために使用します。デプロイ前に設定の問題を検出するのに役立ちます。
+`verify`コマンドは、設定内のリソースを検証します。デプロイ前にリソースの問題を発見するのに役立ちます。
 
-## 構文
+## 使い方
 
-```
-ecspresso verify [オプション]
+```console
+$ ecspresso verify --config ecspresso.yml
 ```
 
 ## オプション
 
-| オプション | 説明 | デフォルト値 |
-|------------|------|-------------|
-| `--save-task-definition` | 検証後にタスク定義を保存するファイルパス | `` |
-| `--save-service-definition` | 検証後にサービス定義を保存するファイルパス | `` |
-| `--skip-validation` | タスク定義の検証をスキップ | `false` |
+| オプション | 説明 |
+|------------|------|
+| `--config` | 設定ファイルのパス（デフォルト: ecspresso.yml） |
+| `--task-definition` | タスク定義のJSONファイルパス |
+| `--service-definition` | サービス定義のJSONファイルパス |
+| `--verify-task-definition` | タスク定義を検証（デフォルト: true） |
+| `--no-verify-task-definition` | タスク定義を検証しない |
+| `--verify-service` | サービスを検証（デフォルト: true） |
+| `--no-verify-service` | サービスを検証しない |
 
 ## 使用例
 
 ### 基本的な使用方法
 
-```bash
-ecspresso verify
+```console
+$ ecspresso verify --config ecspresso.yml
 ```
 
-### 検証後にタスク定義を保存
+### タスク定義のみを検証
 
-```bash
-ecspresso verify --save-task-definition verified-task-def.json
+```console
+$ ecspresso verify --config ecspresso.yml --no-verify-service
 ```
 
-### 検証後にサービス定義を保存
+### サービス定義のみを検証
 
-```bash
-ecspresso verify --save-service-definition verified-service-def.json
+```console
+$ ecspresso verify --config ecspresso.yml --no-verify-task-definition
 ```
 
-## 検証プロセス
+## 検証項目
 
 `verify`コマンドは、以下の項目を検証します：
 
-1. 設定ファイル（ecspresso.yml）の構文
-2. タスク定義の構文と有効性
-3. サービス定義の構文と有効性
-4. 参照されているリソース（IAMロール、セキュリティグループなど）の存在
+1. **タスク定義の検証**
+   - タスクロールとタスク実行ロールが存在するか
+   - コンテナイメージがECRに存在するか
+   - シークレットが存在し、読み取り可能か
+   - ログ設定が有効か
 
-```mermaid
-flowchart TD
-    A[開始] --> B[設定ファイルの検証]
-    B --> C[タスク定義の検証]
-    C --> D[サービス定義の検証]
-    D --> E[リソースの存在確認]
-    E --> F{問題あり?}
-    F -->|Yes| G[エラーを表示]
-    F -->|No| H[検証成功]
-    G --> I[終了]
-    H --> I
-```
+2. **サービス定義の検証**
+   - ECSクラスターが存在するか
+   - ターゲットグループが存在するか
+   - セキュリティグループが存在するか
+   - サブネットが存在するか
+   - キャパシティプロバイダーが存在するか
 
-## 検証エラーの例
+## 出力例
 
 ```
-ERROR: task definition validation failed: InvalidParameterException: The container app does not have any essential containers
-ERROR: service definition validation failed: InvalidParameterException: The security group 'sg-12345678' does not exist
+2023/04/01 12:34:56 myService/default Verifying resources...
+2023/04/01 12:34:56 myService/default Verified task definition
+2023/04/01 12:34:56 myService/default Verified service definition
+2023/04/01 12:34:56 myService/default All resources are valid!
 ```
+
+## 使用シナリオ
+
+`verify`コマンドは、以下のような場合に便利です：
+
+1. デプロイ前にリソースの問題を発見したい場合
+2. CI/CDパイプラインで設定の検証を行いたい場合
+3. 新しい環境に設定をデプロイする前に検証したい場合
 
 ## 注意事項
 
-- `verify`コマンドは実際の変更を行わず、設定の検証のみを行います。
-- デプロイ前に`verify`コマンドを実行して、設定の問題を事前に検出することをお勧めします。
-- CI/CDパイプラインに`verify`コマンドを組み込むことで、問題のある設定がデプロイされるのを防ぐことができます。
-
-## 関連コマンド
-
-- [deploy](./deploy.html) - サービスをデプロイ
-- [diff](./diff.html) - タスク定義、サービス定義と実行中のサービス間の差分を表示
-- [render](./render.html) - 設定、サービス定義、またはタスク定義ファイルをSTDOUTに出力
+- このコマンドはリソースを変更せず、検証のみを行います。
+- 検証に失敗した場合、エラーメッセージが表示されます。
+- すべての検証項目をパスしても、デプロイ時に問題が発生する可能性があります。

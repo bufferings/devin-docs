@@ -1,35 +1,56 @@
 ---
 layout: default
-title: ecspressoについて
-nav_order: 1
+title: ecspressoとは
 parent: はじめに
-grand_parent: ecspresso
+nav_order: 1
 ---
 
-# ecspressoについて
+# ecspressoとは
 
-ecspressoは、AWS Elastic Container Service (ECS)のデプロイと管理を簡単にするためのツールです。AWSのCLIやコンソールよりも簡潔なコマンドで、ECSのサービスやタスク定義を扱うことができます。
+ecspressoは、Amazon ECS（Elastic Container Service）向けのデプロイツールです。コマンドラインから簡単にECSサービスの管理ができます。
 
 ## 主な機能
 
-- ECSサービスのデプロイ（ローリングデプロイとBlue/Greenデプロイをサポート）
-- タスク定義の登録と管理
-- 一時的なタスクの実行
-- サービスの状態確認
-- 設定ファイルの検証と表示
+- ECSサービスのデプロイと管理
+- タスク定義の登録と更新
+- Blue/Greenデプロイ（AWS CodeDeployとの連携）
+- ECSタスクの実行と管理
+- 複数環境での設定管理
+- サービスとタスク定義の差分確認
+- タスク上でのコマンド実行（exec）
 
-## アーキテクチャ概要
+## アーキテクチャ
 
 ```mermaid
 graph TD
-    A[ecspresso] --> B[AWS ECS]
-    A --> C[AWS CodeDeploy]
-    A --> D[AWS CloudFormation]
-    A --> E[AWS SSM Parameter Store]
-    A --> F[AWS Secrets Manager]
-    B --> G[ECSサービス]
-    B --> H[ECSタスク定義]
-    B --> I[ECSタスク]
+  A[ecspresso CLI] --> B[AWS ECS API]
+  A --> C[AWS CodeDeploy API]
+  A --> D[テンプレート処理]
+  D --> E[タスク定義]
+  D --> F[サービス定義]
+  E --> B
+  F --> B
+  A --> G[プラグイン]
+  G --> H[tfstate]
+  G --> I[外部コマンド]
+  G --> J[SSM]
+  G --> K[Secrets Manager]
 ```
 
-ecspressoはAWS SDKを使用して、ECSおよび関連するAWSサービスと通信します。設定ファイル（ecspresso.yml）と定義ファイル（ecs-task-def.json、ecs-service-def.json）を使用して、ECSリソースを管理します。
+## サポートする機能
+
+ecspressoは以下のAWS ECS機能をサポートしています：
+
+- Fargate
+- Fargate Spot
+- Service Connect
+- EBS Volumes
+- VPC Lattice
+
+## テンプレート機能
+
+ecspressoはタスク定義とサービス定義のテンプレート処理をサポートしています：
+
+- Go テンプレート構文
+- 環境変数の参照
+- Jsonnet

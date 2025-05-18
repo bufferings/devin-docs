@@ -1,42 +1,35 @@
 ---
 layout: default
 title: version
-nav_order: 19
 parent: コマンドリファレンス
-grand_parent: ecspresso
+nav_order: 18
 ---
 
 # version
 
-`version`コマンドは、ecspressoのバージョン情報を表示するために使用します。
+`version`コマンドは、ecspressoのバージョン情報を表示します。
 
-## 構文
+## 使い方
 
-```
-ecspresso version
-```
-
-## オプション
-
-このコマンドにはオプションはありません。
-
-## 使用例
-
-```bash
-ecspresso version
+```console
+$ ecspresso version
 ```
 
 ## 出力例
 
 ```
-ecspresso v2.0.0
+ecspresso v2.3.0
 ```
+
+## 使用シナリオ
+
+`version`コマンドは、以下のような場合に便利です：
+
+1. インストールされているecspressoのバージョンを確認したい場合
+2. バグレポートを提出する際にバージョン情報を含めたい場合
+3. 新しいバージョンがリリースされたかどうかを確認したい場合
 
 ## 注意事項
 
-- バージョン情報は、バグ報告やサポート要求時に役立ちます。
-- 新しいバージョンのecspressoがリリースされているかどうかを確認するために使用できます。
-
-## 関連コマンド
-
-なし
+- このコマンドは設定ファイルを必要としません。
+- バージョン情報には、メジャーバージョン、マイナーバージョン、パッチバージョンが含まれます。

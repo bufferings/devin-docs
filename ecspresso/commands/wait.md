@@ -1,89 +1,59 @@
 ---
 layout: default
 title: wait
-nav_order: 18
 parent: コマンドリファレンス
-grand_parent: ecspresso
+nav_order: 19
 ---
 
 # wait
 
-`wait`コマンドは、ECSサービスが安定するまで待機するために使用します。
+`wait`コマンドは、サービスが安定するまで待機します。
 
-## 構文
+## 使い方
 
-```
-ecspresso wait [オプション]
+```console
+$ ecspresso wait --config ecspresso.yml
 ```
 
 ## オプション
 
-| オプション | 説明 | デフォルト値 |
-|------------|------|-------------|
-| `--timeout` | タイムアウト時間（秒） | （設定ファイルの値） |
-| `--wait-until` | どの状態まで待機するか（stable/deployed） | `stable` |
+| オプション | 説明 |
+|------------|------|
+| `--config` | 設定ファイルのパス（デフォルト: ecspresso.yml） |
+| `--timeout` | タイムアウト時間（デフォルト: 10m） |
 
 ## 使用例
 
 ### 基本的な使用方法
 
-```bash
-ecspresso wait
+```console
+$ ecspresso wait --config ecspresso.yml
 ```
 
-### タイムアウトを指定
+### タイムアウト時間を指定
 
-```bash
-ecspresso wait --timeout 300
+```console
+$ ecspresso wait --config ecspresso.yml --timeout 5m
 ```
 
-### デプロイ完了まで待機
+## 出力例
 
-```bash
-ecspresso wait --wait-until deployed
+```
+2023/04/01 12:34:56 myService/default Waiting for service stable...
+2023/04/01 12:35:56 myService/default  PRIMARY myService:4 desired:2 pending:0 running:2
+2023/04/01 12:36:56 myService/default Service is stable now. Completed!
 ```
 
-## 待機プロセス
+## 使用シナリオ
 
-`wait`コマンドは、サービスが指定された状態（デフォルトでは「stable」）に達するまで待機します。
+`wait`コマンドは、以下のような場合に便利です：
 
-- `stable`: プライマリデプロイメントが希望タスク数に達し、すべてのタスクが正常に実行されている状態
-- `deployed`: CodeDeployを使用したBlue/Greenデプロイメントが完了した状態
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant Ecspresso
-    participant ECS
-    participant CodeDeploy
-    
-    User->>Ecspresso: wait
-    alt wait-until=stable
-        loop until stable
-            Ecspresso->>ECS: DescribeServices
-            ECS-->>Ecspresso: サービスのステータス
-        end
-    else wait-until=deployed
-        loop until deployed
-            Ecspresso->>CodeDeploy: GetDeployment
-            CodeDeploy-->>Ecspresso: デプロイメントのステータス
-        end
-    end
-    Ecspresso-->>User: 待機完了
-```
-
-## ユースケース
-
-- デプロイ後にサービスが安定するまで待機
-- CI/CDパイプラインでの自動デプロイ後の検証
-- スクリプト内でのデプロイ完了の確認
+1. デプロイ後にサービスが安定するまで待機したい場合
+2. スクリプトやCI/CDパイプラインでデプロイの完了を確認したい場合
+3. サービスの更新が完了したことを確認してから次のステップに進みたい場合
 
 ## 注意事項
 
-- `--timeout`オプションを使用して、最大待機時間を指定できます。タイムアウトに達すると、コマンドはエラーで終了します。
-- CodeDeployを使用したBlue/Greenデプロイメントの場合は、`--wait-until deployed`を使用することをお勧めします。
-
-## 関連コマンド
-
-- [deploy](./deploy.html) - サービスをデプロイ
-- [status](./status.html) - サービスの状態を表示
+- このコマンドはサービスが安定するまで待機するだけで、変更は行いません。
+- サービスが安定するとは、デザイアドカウントとランニングカウントが一致し、保留中のタスクがない状態を指します。
+- タイムアウト時間を超えても安定しない場合、エラーが発生します。

@@ -1,83 +1,75 @@
 ---
 layout: default
 title: 基本的な使い方
-nav_order: 1
 parent: クイックスタート
-grand_parent: ecspresso
+nav_order: 1
 ---
 
 # 基本的な使い方
 
-ecspressoを使い始めるための基本的な手順を説明します。
+ecspressoを使用すると、既存のECSサービスを簡単にコードで管理できます。
 
-## 設定ファイルの初期化
+## 初期設定
 
-既存のECSサービスからecspressoの設定を初期化するには、以下のコマンドを使用します。
+`ecspresso init`コマンドを使用して、既存のECSサービスから設定を生成します。
 
-```bash
-ecspresso init --region ap-northeast-1 --cluster your-cluster-name --service your-service-name
+```console
+$ ecspresso init --region ap-northeast-1 --cluster default --service myservice --config ecspresso.yml
+2019/10/12 01:31:48 myservice/default save service definition to ecs-service-def.json
+2019/10/12 01:31:48 myservice/default save task definition to ecs-task-def.json
+2019/10/12 01:31:48 myservice/default save config to ecspresso.yml
 ```
 
-これにより、以下のファイルが生成されます：
-- `ecspresso.yml` - ecspressoの設定ファイル
-- `ecs-service-def.json` - ECSサービス定義
-- `ecs-task-def.json` - ECSタスク定義
+生成されたファイル（`ecspresso.yml`、`ecs-service-def.json`、`ecs-task-def.json`）を確認します。
 
-もし既存のサービスがなく、新しくタスク定義から始める場合は：
+## 設定ファイル
 
-```bash
-ecspresso init --region ap-northeast-1 --cluster your-cluster-name --task-definition family:revision
+`ecspresso.yml`は以下のような構成になっています：
+
+```yaml
+region: ap-northeast-1
+cluster: default
+service: myservice
+service_definition: ecs-service-def.json
+task_definition: ecs-task-def.json
+timeout: 10m
 ```
 
-## デプロイフロー
+## デプロイ
 
-```mermaid
-graph TD
-    A[設定ファイル準備] --> B[設定の検証]
-    B --> C[サービス/タスク定義の差分確認]
-    C --> D[デプロイ実行]
-    D --> E[サービスの状態確認]
-    
-    B --> |verify| F[設定の検証]
-    C --> |diff| G[差分の表示]
-    D --> |deploy| H[デプロイ]
-    E --> |status/wait| I[状態確認]
+```console
+$ ecspresso deploy --config ecspresso.yml
 ```
 
-## デプロイの実行
+## テンプレートの使用
 
-設定ファイルを準備したら、以下のステップでデプロイを行います：
+ecspressoはサービス定義とタスク定義ファイルをテンプレートとして読み込むことができます。典型的な使用例はタスク定義ファイルで画像のタグを置き換えることです。
 
-1. 設定の検証
-```bash
-ecspresso verify
+ecs-task-def.jsonを以下のように変更します。
+
+```diff
+-  "image": "nginx:latest",
++  "image": "nginx:{{ must_env `IMAGE_TAG` }}",
 ```
 
-2. デプロイする内容の差分を確認
-```bash
-ecspresso diff
+そして、環境変数`IMAGE_TAG`を指定してサービスをデプロイします。
+
+```console
+$ IMAGE_TAG=stable ecspresso deploy --config ecspresso.yml
 ```
 
-3. 実際にデプロイを実行
-```bash
-ecspresso deploy
+## 差分の確認
+
+デプロイ前に、現在のECSサービスとローカルの定義ファイルの差分を確認できます。
+
+```console
+$ ecspresso diff --config ecspresso.yml
 ```
 
-4. サービスの状態を確認
-```bash
-ecspresso status
-```
+## 設定の検証
 
-## 一時的なタスクの実行
+デプロイ前に、設定が正しいかどうかを検証できます。
 
-一時的なタスクを実行するには、以下のコマンドを使用します：
-
-```bash
-ecspresso run
-```
-
-タスク定義のオーバーライドを指定することもできます：
-
-```bash
-ecspresso run --overrides '{"containerOverrides":[{"name":"app","command":["command", "arg1", "arg2"]}]}'
+```console
+$ ecspresso verify --config ecspresso.yml
 ```

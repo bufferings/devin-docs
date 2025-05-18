@@ -1,97 +1,96 @@
 ---
 layout: default
-title: ユースケース
-nav_order: 2
+title: よくあるユースケース
 parent: クイックスタート
-grand_parent: ecspresso
+nav_order: 2
 ---
 
-# 一般的なユースケース
+# よくあるユースケース
 
-ecspressoを使用する一般的なユースケースを紹介します。
+## ローリングデプロイ
 
-## ローリングデプロイの実行
-
-ECSのデフォルトデプロイメント戦略であるローリングデプロイを実行する場合：
-
-```bash
-ecspresso deploy
+```console
+$ ecspresso deploy --config ecspresso.yml
+2017/11/09 23:20:13 myService/default Starting deploy
+Service: myService
+Cluster: default
+TaskDefinition: myService:3
+Deployments:
+    PRIMARY myService:3 desired:1 pending:0 running:1
+Events:
+2017/11/09 23:20:13 myService/default Creating a new task definition by myTask.json
+2017/11/09 23:20:13 myService/default Registering a new task definition...
+2017/11/09 23:20:13 myService/default Task definition is registered myService:4
+2017/11/09 23:20:13 myService/default Updating service...
+2017/11/09 23:20:13 myService/default Waiting for service stable...(it will take a few minutes)
+2017/11/09 23:23:23 myService/default  PRIMARY myService:4 desired:1 pending:0 running:1
+2017/11/09 23:23:29 myService/default Service is stable now. Completed!
 ```
 
-## Blue/Greenデプロイの実行
+## Blue/Greenデプロイ（AWS CodeDeployとの連携）
 
-AWS CodeDeployを使用したBlue/Greenデプロイを行うには、最初にCodeDeployの設定を`ecspresso.yml`に追加し、デプロイメントコントローラーをサービス定義に設定します：
-
-```yaml
-# ecspresso.yml
-codedeploy:
-  application_name: AppECS-your-cluster-your-service
-  deployment_group_name: DgpECS-your-cluster-your-service
-  deployment_config_name: CodeDeployDefault.ECSAllAtOnce
-```
+`ecspresso deploy`コマンドは、CODE_DEPLOYデプロイメントコントローラーを使用したサービスのデプロイが可能です。ecs-service-def.jsonを以下のように設定します。
 
 ```json
-// ecs-service-def.json
 {
   "deploymentController": {
     "type": "CODE_DEPLOY"
-  }
+  },
+  // ...
 }
 ```
 
-その後、通常のdeployコマンドを実行します：
-
-```bash
-ecspresso deploy
+```console
+$ ecspresso deploy --config ecspresso.yml --rollback-events DEPLOYMENT_FAILURE
+2019/10/15 22:47:07 myService/default Starting deploy
+Service: myService
+Cluster: default
+TaskDefinition: myService:5
+TaskSets:
+   PRIMARY myService:5 desired:1 pending:0 running:1
+Events:
+2019/10/15 22:47:08 myService/default Creating a new task definition by ecs-task-def.json
+2019/10/15 22:47:08 myService/default Registering a new task definition...
+2019/10/15 22:47:08 myService/default Task definition is registered myService:6
+2019/10/15 22:47:08 myService/default desired count: 1
+2019/10/15 22:47:09 myService/default Deployment d-XXXXXXXXX is created on CodeDeploy
+2019/10/15 22:47:09 myService/default https://ap-northeast-1.console.aws.amazon.com/codesuite/codedeploy/deployments/d-XXXXXXXXX?region=ap-northeast-1
 ```
 
-デプロイ失敗時に自動ロールバックを設定する場合：
+## スケールアウト/イン
 
-```bash
-ecspresso deploy --rollback-events DEPLOYMENT_FAILURE
+サービスのデザイアドカウントを変更するには、`scale --tasks`を指定します。
+
+```console
+$ ecspresso scale --tasks 10
 ```
 
-## サービスのスケーリング
+## 一時的なタスクの実行
 
-サービスのタスク数を変更するには：
+`run`コマンドを使用して、一時的なタスクを実行できます。
 
-```bash
-ecspresso scale --tasks 10
+```console
+$ ecspresso run --task-def=myapp.json --comment="run task by ecspresso"
 ```
 
-## 一時的なタスクの実行とコンテナへの接続
+## タスク上でのコマンド実行
 
-一時的なタスクを実行し、そのコンテナへ接続するには：
+`exec`コマンドを使用して、実行中のタスク上でコマンドを実行できます。
 
-```bash
-ecspresso run
-ecspresso exec --command /bin/bash
+```console
+$ ecspresso exec --command /bin/bash
 ```
 
-## 複数環境での設定管理
-
-環境変数ファイルを使用して、複数の環境（開発、ステージング、本番）のデプロイを管理できます：
-
-```bash
-ecspresso deploy --envfile dev.env
-ecspresso deploy --envfile staging.env
-ecspresso deploy --envfile production.env
-```
+## デプロイフロー
 
 ```mermaid
-graph LR
-    A[設定テンプレート] --> |dev.env| B[開発環境]
-    A --> |staging.env| C[ステージング環境]
-    A --> |production.env| D[本番環境]
-    B --> E[ECS dev]
-    C --> F[ECS staging]
-    D --> G[ECS production]
-```
-
-## 既存サービスの設定エクスポート
-
-既存のECSサービスの設定をecspressoの形式でエクスポートするには：
-
-```bash
-ecspresso init --region ap-northeast-1 --cluster your-cluster --service your-service
+graph TD
+  A[コード変更] --> B[イメージビルド]
+  B --> C[イメージプッシュ]
+  C --> D[ecspresso diff]
+  D --> E[ecspresso deploy]
+  E -->|ローリングデプロイ| F[ECSサービス更新]
+  E -->|Blue/Green| G[CodeDeployデプロイ]
+  G --> H[トラフィック移行]
+  H --> I[デプロイ完了]
 ```

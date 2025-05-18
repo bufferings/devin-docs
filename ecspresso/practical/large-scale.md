@@ -1,41 +1,55 @@
 ---
 layout: default
-title: 大規模サービス管理
-nav_order: 2
+title: 大規模サービスの管理
 parent: 実践ガイド
-grand_parent: ecspresso
+nav_order: 3
 ---
 
-# 大規模サービス管理
+# 大規模サービスの管理
 
-ecspressoを使用して大規模なECSサービスを管理するためのベストプラクティスを紹介します。
+ecspressoを使用して大規模サービスを効率的に管理する方法を説明します。
 
-## マイクロサービスアーキテクチャでの管理
+## Application Auto Scalingの管理
 
-複数のマイクロサービスを管理する場合、各サービスごとに別々のecspresso設定を用意することをお勧めします：
+Application Auto Scalingを使用するECSサービスでは、`ecspresso scale`コマンドで自動スケーリングの最小値と最大値を調整できます。
 
-```
-project/
-├── service-a/
-│   ├── ecspresso.yml
-│   ├── ecs-service-def.json
-│   └── ecs-task-def.json
-├── service-b/
-│   ├── ecspresso.yml
-│   ├── ecs-service-def.json
-│   └── ecs-task-def.json
-└── service-c/
-    ├── ecspresso.yml
-    ├── ecs-service-def.json
-    └── ecs-task-def.json
+```console
+$ ecspresso scale --tasks 5 --auto-scaling-min 5 --auto-scaling-max 20
 ```
 
-## Blue/Greenデプロイの活用
+`ecspresso deploy`と`scale`は自動スケーリングの一時停止と再開ができます。
 
-大規模サービスでは、ダウンタイムを最小限に抑えるためにBlue/Greenデプロイを活用することをお勧めします。
+- `--suspend-auto-scaling` - 一時停止状態をtrueに設定
+- `--resume-auto-scaling` - 一時停止状態をfalseに設定
+
+## Fargate Spotの活用
+
+Fargate Spotを使用するには、サービス定義に`capacityProviderStrategy`を定義します。
 
 ```json
-// ecs-service-def.json
+{
+  "capacityProviderStrategy": [
+    {
+      "base": 1,
+      "capacityProvider": "FARGATE",
+      "weight": 1
+    },
+    {
+      "base": 0,
+      "capacityProvider": "FARGATE_SPOT",
+      "weight": 1
+    }
+  ]
+}
+```
+
+これにより、基本的なタスクはFARGATEで実行され、スケールアウト時の追加タスクはFARGATE_SPOTで実行されます。
+
+## Blue/Greenデプロイメントの活用
+
+大規模サービスでは、ダウンタイムを最小限に抑えるためにBlue/Greenデプロイメントを活用できます。
+
+```json
 {
   "deploymentController": {
     "type": "CODE_DEPLOY"
@@ -43,92 +57,115 @@ project/
 }
 ```
 
-```yaml
-# ecspresso.yml
-codedeploy:
-  application_name: AppECS-your-cluster-your-service
-  deployment_group_name: DgpECS-your-cluster-your-service
-  deployment_config_name: CodeDeployDefault.ECSAllAtOnce
+AppSpecファイルを使用して、トラフィックの移行方法を制御できます。
+
+```console
+$ ecspresso appspec > appspec.yaml
 ```
 
-## Blue/Greenデプロイのフロー
+```yaml
+version: 0.0
+Resources:
+  - TargetService:
+      Type: AWS::ECS::Service
+      Properties:
+        TaskDefinition: <TASK_DEFINITION>
+        LoadBalancerInfo:
+          ContainerName: "nginx"
+          ContainerPort: 80
+        PlatformVersion: "1.4.0"
+Hooks:
+  - BeforeInstall: "LambdaFunctionToValidateBeforeInstall"
+  - AfterInstall: "LambdaFunctionToValidateAfterInstall"
+  - AfterAllowTestTraffic: "LambdaFunctionToValidateAfterTestTrafficStarts"
+  - BeforeAllowTraffic: "LambdaFunctionToValidateBeforeAllowingProductionTraffic"
+  - AfterAllowTraffic: "LambdaFunctionToValidateAfterAllowingProductionTraffic"
+```
+
+## マイクロサービスアーキテクチャでの運用
 
 ```mermaid
-sequenceDiagram
-    participant User
-    participant Ecspresso
-    participant ECS
-    participant CodeDeploy
-    participant ALB
-    
-    User->>Ecspresso: deploy
-    Ecspresso->>ECS: RegisterTaskDefinition
-    ECS-->>Ecspresso: 新しいタスク定義ARN
-    Ecspresso->>CodeDeploy: CreateDeployment
-    CodeDeploy->>ECS: 新しいタスクセットを作成（グリーン環境）
-    CodeDeploy->>ALB: テストリスナーにグリーン環境を登録
-    CodeDeploy->>ALB: トラフィックをグリーン環境に移行
-    CodeDeploy->>ECS: 古いタスクセットを削除（ブルー環境）
-    CodeDeploy-->>Ecspresso: デプロイ完了
-    Ecspresso-->>User: デプロイ成功
+graph TD
+  A[CI/CDパイプライン] --> B[サービスA用ecspresso]
+  A --> C[サービスB用ecspresso]
+  A --> D[サービスC用ecspresso]
+  B --> E[ECSクラスタ]
+  C --> E
+  D --> E
+  E --> F[サービスA]
+  E --> G[サービスB]
+  E --> H[サービスC]
 ```
 
-## オートスケーリングの管理
+マイクロサービスアーキテクチャでは、各サービスごとに別々の設定ファイルを用意し、独立してデプロイできます。
 
-大規模サービスでは、Application Auto Scalingを活用することが重要です。ecspressoはデプロイ中のオートスケーリングの一時停止と再開をサポートしています：
-
-```bash
-# デプロイ中にオートスケーリングを一時停止
-ecspresso deploy --suspend-auto-scaling
-
-# デプロイ後にオートスケーリングを再開
-ecspresso deploy --resume-auto-scaling
-
-# オートスケーリングの最小・最大容量を設定
-ecspresso deploy --auto-scaling-min 5 --auto-scaling-max 20
+```
+services/
+├── service-a/
+│   ├── ecspresso.yml
+│   ├── ecs-task-def.json
+│   └── ecs-service-def.json
+├── service-b/
+│   ├── ecspresso.yml
+│   ├── ecs-task-def.json
+│   └── ecs-service-def.json
+└── service-c/
+    ├── ecspresso.yml
+    ├── ecs-task-def.json
+    └── ecs-service-def.json
 ```
 
-## 大規模デプロイのモニタリング
+## リソース管理の最適化
 
-大規模なデプロイでは、進行状況のモニタリングが重要です：
+大規模サービスでは、リソースの最適化が重要です。
 
-```bash
-# サービスの状態を確認
-ecspresso status
-
-# サービスが安定するまで待機
-ecspresso wait
-```
-
-## パフォーマンスチューニング
-
-大規模サービスのパフォーマンスを最適化するためのヒント：
-
-1. タスク定義でコンテナのリソース制限（CPU、メモリ）を適切に設定する
-2. ヘルスチェックの猶予期間を適切に設定する
-3. デプロイ設定で最小ヘルス率と最大率を調整する
-4. サービスの配置戦略を最適化する
+### タスク定義の最適化
 
 ```json
-// ecs-service-def.json の例
 {
-  "deploymentConfiguration": {
-    "deploymentCircuitBreaker": {
-      "enable": true,
-      "rollback": true
-    },
-    "maximumPercent": 200,
-    "minimumHealthyPercent": 100
-  },
-  "placementStrategy": [
+  "cpu": "256",
+  "memory": "512",
+  "containerDefinitions": [
     {
-      "field": "attribute:ecs.availability-zone",
-      "type": "spread"
+      "name": "app",
+      "cpu": 0,
+      "memory": 256,
+      "essential": true
     },
     {
-      "field": "instanceId",
-      "type": "spread"
+      "name": "sidecar",
+      "cpu": 0,
+      "memory": 128,
+      "essential": false
     }
   ]
 }
 ```
+
+### ヘルスチェックの最適化
+
+```json
+{
+  "containerDefinitions": [
+    {
+      "name": "app",
+      "healthCheck": {
+        "command": [
+          "CMD-SHELL",
+          "curl -f http://localhost:8080/health || exit 1"
+        ],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      }
+    }
+  ]
+}
+```
+
+## 注意事項
+
+- 大規模サービスでは、デプロイ前に`verify`コマンドを実行して設定の問題を早期に発見することをお勧めします。
+- Blue/Greenデプロイメントを使用する場合、ロールバックはCodeDeployコンソールから行う必要があります。
+- Fargate Spotを使用する場合、スポットインスタンスの中断に対応できるようにアプリケーションを設計する必要があります。

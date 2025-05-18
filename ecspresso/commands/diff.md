@@ -1,92 +1,77 @@
 ---
 layout: default
 title: diff
-nav_order: 5
 parent: コマンドリファレンス
-grand_parent: ecspresso
+nav_order: 5
 ---
 
 # diff
 
-`diff`コマンドは、タスク定義、サービス定義と実行中のサービス間の差分を表示します。デプロイ前に変更内容を確認するのに役立ちます。
+`diff`コマンドは、ローカルのタスク定義・サービス定義と、現在実行中のサービスとタスク定義の差分を表示します。
 
-## 構文
+## 使い方
 
-```
-ecspresso diff [オプション]
+```console
+$ ecspresso diff --config ecspresso.yml
 ```
 
 ## オプション
 
-| オプション | 説明 | デフォルト値 |
-|------------|------|-------------|
-| `--config-only` | 設定ファイルのみの差分を表示 | `false` |
-| `--task-definition-only` | タスク定義のみの差分を表示 | `false` |
-| `--service-definition-only` | サービス定義のみの差分を表示 | `false` |
-| `--unified-context N` | 差分表示のコンテキスト行数 | `3` |
-| `--color/--no-color` | 差分の色付け表示を有効/無効にする | `true` |
+| オプション | 説明 |
+|------------|------|
+| `--config` | 設定ファイルのパス（デフォルト: ecspresso.yml） |
+| `--task-definition` | タスク定義のJSONファイルパス |
+| `--service-definition` | サービス定義のJSONファイルパス |
+| `--compare-task-definition` | タスク定義の差分を表示（デフォルト: true） |
+| `--no-compare-task-definition` | タスク定義の差分を表示しない |
+| `--compare-service` | サービス定義の差分を表示（デフォルト: true） |
+| `--no-compare-service` | サービス定義の差分を表示しない |
+| `--unified` | 統合差分形式の行数（デフォルト: 3） |
 
 ## 使用例
 
 ### 基本的な使用方法
 
-```bash
-ecspresso diff
+```console
+$ ecspresso diff --config ecspresso.yml
 ```
 
 ### タスク定義のみの差分を表示
 
-```bash
-ecspresso diff --task-definition-only
+```console
+$ ecspresso diff --config ecspresso.yml --no-compare-service
 ```
 
 ### サービス定義のみの差分を表示
 
-```bash
-ecspresso diff --service-definition-only
+```console
+$ ecspresso diff --config ecspresso.yml --no-compare-task-definition
 ```
 
-### 差分表示のコンテキスト行数を変更
+### 統合差分形式の行数を変更
 
-```bash
-ecspresso diff --unified-context 5
+```console
+$ ecspresso diff --config ecspresso.yml --unified 5
 ```
 
-## 差分表示の例
+## 出力例
 
 ```diff
---- ecs-task-def.json
-+++ new-task-definition
+--- ecs-service-def.json
++++ ecs-service-def.json
 @@ -1,7 +1,7 @@
  {
-   "family": "myapp",
-   "containerDefinitions": [
+   "desiredCount": 1,
+   "enableECSManagedTags": false,
+-  "launchType": "FARGATE",
++  "launchType": "EC2",
+   "loadBalancers": [
      {
--      "image": "myapp:v1",
-+      "image": "myapp:v2",
-       "name": "app"
-     }
-   ]
-```
-
-## 差分確認のワークフロー
-
-```mermaid
-flowchart TD
-    A[設定ファイル編集] --> B[差分確認]
-    B --> C{問題なし?}
-    C -->|Yes| D[デプロイ実行]
-    C -->|No| A
+       "containerName": "nginx",
 ```
 
 ## 注意事項
 
-- `diff`コマンドは実際の変更を行わず、変更内容のプレビューのみを表示します。
-- 差分がない場合は何も表示されません。
-- デプロイ前に`diff`コマンドを実行して変更内容を確認することをお勧めします。
-
-## 関連コマンド
-
-- [deploy](./deploy.html) - サービスをデプロイ
-- [verify](./verify.html) - 設定内のリソースを検証
-- [render](./render.html) - 設定、サービス定義、またはタスク定義ファイルをSTDOUTに出力
+- このコマンドは実際にサービスやタスク定義を変更しません。
+- デプロイ前に変更内容を確認するために使用します。
+- 差分がない場合は何も出力されません。

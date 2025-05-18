@@ -1,116 +1,106 @@
 ---
 layout: default
 title: deploy
-nav_order: 3
 parent: コマンドリファレンス
-grand_parent: ecspresso
+nav_order: 3
 ---
 
 # deploy
 
-`deploy`コマンドは、ECSサービスをデプロイするために使用します。新しいタスク定義の登録、サービス属性の更新、デプロイの実行を行います。
+`deploy`コマンドは、ECSサービスをデプロイします。これはecspressoの最も基本的なコマンドです。
 
-## 構文
+## 使い方
 
-```
-ecspresso deploy [オプション]
+```console
+$ ecspresso deploy --config ecspresso.yml
 ```
 
 ## オプション
 
-| オプション | 説明 | デフォルト値 |
-|------------|------|-------------|
-| `--dry-run` | 実際の変更を行わずに実行内容を表示 | `false` |
-| `--tasks N` | タスクの希望数 | -1（現在の値を維持） |
-| `--skip-task-definition` | 新しいタスク定義の登録をスキップ | `false` |
-| `--revision N` | `--skip-task-definition`指定時に使用するタスク定義のリビジョン | `0` |
-| `--force-new-deployment` | サービスの新しいデプロイメントを強制 | `false` |
-| `--wait/--no-wait` | サービスが安定するまで待機するかどうか | `true` |
-| `--wait-until` | どの状態まで待機するか（stable/deployed） | `stable` |
-| `--suspend-auto-scaling` | ECSサービスに関連付けられたアプリケーションオートスケーリングを一時停止 | - |
-| `--resume-auto-scaling` | ECSサービスに関連付けられたアプリケーションオートスケーリングを再開 | - |
-| `--auto-scaling-min N` | アプリケーションオートスケーリングの最小キャパシティを設定 | - |
-| `--auto-scaling-max N` | アプリケーションオートスケーリングの最大キャパシティを設定 | - |
-| `--rollback-events` | 指定したイベント発生時にロールバック（DEPLOYMENT_FAILURE,DEPLOYMENT_STOP_ON_ALARM,DEPLOYMENT_STOP_ON_REQUEST,...）CodeDeployのみ | `` |
-| `--update-service/--no-update-service` | サービス定義によってサービス属性を更新するかどうか | `true` |
-| `--latest-task-definition` | 新しいタスク定義を登録せずに最新のタスク定義でデプロイ | `false` |
+| オプション | 説明 |
+|------------|------|
+| `--config` | 設定ファイルのパス（デフォルト: ecspresso.yml） |
+| `--task-definition` | タスク定義のJSONファイルパス |
+| `--service-definition` | サービス定義のJSONファイルパス |
+| `--skip-task-definition` | タスク定義の更新をスキップ |
+| `--update-service` | サービスの更新を行う（デフォルト: true） |
+| `--no-update-service` | サービスの更新を行わない |
+| `--force-new-deployment` | 強制的に新しいデプロイメントを作成 |
+| `--wait-until-stable` | サービスが安定するまで待機（デフォルト: true） |
+| `--no-wait-until-stable` | サービスが安定するまで待機しない |
+| `--suspend-auto-scaling` | Auto Scalingを一時停止 |
+| `--resume-auto-scaling` | Auto Scalingを再開 |
+| `--rollback-events` | 指定されたイベントが発生した場合にロールバックする（例: DEPLOYMENT_FAILURE） |
+| `--tasks` | サービスのタスク数を指定 |
+| `--auto-scaling-min` | Auto Scalingの最小値を設定 |
+| `--auto-scaling-max` | Auto Scalingの最大値を設定 |
+| `--revision` | 使用するタスク定義のリビジョン |
+| `--latest-task-definition` | 最新のタスク定義を使用 |
+| `--dry-run` | 実際にデプロイを行わずに実行内容を表示 |
 
 ## 使用例
 
 ### 基本的なデプロイ
 
-```bash
-ecspresso deploy
+```console
+$ ecspresso deploy --config ecspresso.yml
 ```
 
-### ドライランモードでの実行
+### タスク定義の更新をスキップしてサービスを更新
 
-変更内容を確認するためのドライラン：
-
-```bash
-ecspresso deploy --dry-run
-```
-
-### タスク数を指定したデプロイ
-
-```bash
-ecspresso deploy --tasks 5
+```console
+$ ecspresso deploy --config ecspresso.yml --skip-task-definition
 ```
 
 ### 強制的に新しいデプロイメントを作成
 
-```bash
-ecspresso deploy --force-new-deployment
+```console
+$ ecspresso deploy --config ecspresso.yml --force-new-deployment
 ```
 
-### タスク定義の更新をスキップしてデプロイ
+### デプロイ失敗時に自動的にロールバック
 
-```bash
-ecspresso deploy --skip-task-definition
+```console
+$ ecspresso deploy --config ecspresso.yml --rollback-events DEPLOYMENT_FAILURE
 ```
 
-### CodeDeployを使用したBlue/Greenデプロイとロールバック設定
+### タスク数を変更してデプロイ
 
-```bash
-ecspresso deploy --rollback-events DEPLOYMENT_FAILURE,DEPLOYMENT_STOP_ON_ALARM
+```console
+$ ecspresso deploy --config ecspresso.yml --tasks 10
 ```
 
-## デプロイフロー図
+### Auto Scalingの設定を変更してデプロイ
+
+```console
+$ ecspresso deploy --config ecspresso.yml --auto-scaling-min 5 --auto-scaling-max 20
+```
+
+## デプロイフロー
 
 ```mermaid
 sequenceDiagram
-    participant User
-    participant Ecspresso
-    participant ECS
-    participant CodeDeploy
+    participant User as ユーザー
+    participant Ecspresso as ecspresso
+    participant ECS as Amazon ECS
+    participant CodeDeploy as AWS CodeDeploy
+    
+    User->>Ecspresso: deploy コマンド実行
+    Ecspresso->>Ecspresso: タスク定義とサービス定義を読み込み
+    Ecspresso->>ECS: 新しいタスク定義を登録
+    ECS-->>Ecspresso: タスク定義ARN
     
     alt ローリングデプロイ
-        User->>Ecspresso: deploy
-        Ecspresso->>ECS: RegisterTaskDefinition
-        ECS-->>Ecspresso: 新しいタスク定義ARN
-        Ecspresso->>ECS: UpdateService
-        ECS-->>Ecspresso: サービスを更新
-        opt wait=true
-            Ecspresso->>ECS: DescribeServices（安定するまで待機）
-            ECS-->>Ecspresso: サービスのステータス
-        end
-    else Blue/Greenデプロイ（CodeDeploy）
-        User->>Ecspresso: deploy
-        Ecspresso->>ECS: RegisterTaskDefinition
-        ECS-->>Ecspresso: 新しいタスク定義ARN
-        Ecspresso->>CodeDeploy: CreateDeployment
+        Ecspresso->>ECS: サービスを更新
+        ECS-->>Ecspresso: サービス更新開始
+        Ecspresso->>ECS: サービスの安定を待機
+        ECS-->>Ecspresso: サービス安定通知
+    else Blue/Greenデプロイ
+        Ecspresso->>CodeDeploy: デプロイメント作成
         CodeDeploy-->>Ecspresso: デプロイメントID
-        opt wait=true
-            Ecspresso->>CodeDeploy: GetDeployment（完了まで待機）
-            CodeDeploy-->>Ecspresso: デプロイメントのステータス
-        end
+        Ecspresso->>CodeDeploy: デプロイメント完了を待機
+        CodeDeploy-->>Ecspresso: デプロイメント完了通知
     end
     
-    Ecspresso-->>User: デプロイ結果
+    Ecspresso-->>User: デプロイ完了
 ```
-
-## 関連コマンド
-
-- [refresh](./refresh.html) - サービスを更新（`deploy --skip-task-definition --force-new-deployment --no-update-service`と同等）
-- [scale](./scale.html) - サービスをスケール（`deploy --skip-task-definition --no-update-service`と同等）
-- [rollback](./rollback.html) - サービスをロールバック
