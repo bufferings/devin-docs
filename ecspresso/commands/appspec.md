@@ -1,48 +1,27 @@
 ---
 layout: default
 title: appspec
-nav_order: 1
 parent: コマンドリファレンス
-grand_parent: ecspresso
+nav_order: 1
 ---
 
 # appspec
 
-`appspec`コマンドは、AWS CodeDeployのAppSpec YAMLをSTDOUTに出力します。このコマンドは、Blue/Greenデプロイメントを設定する際に役立ちます。
+`appspec`コマンドは、AWS CodeDeployのAppSpec YAMLを標準出力に出力します。Blue/Greenデプロイメントを行う際に使用します。
 
-## 構文
+## 使い方
 
-```
-ecspresso appspec [オプション]
+```console
+$ ecspresso appspec --config ecspresso.yml
 ```
 
 ## オプション
 
-| オプション | 説明 | デフォルト値 |
-|------------|------|-------------|
-| `--task-definition` | 使用するタスク定義のARN | 最新のタスク定義 |
-| `--revision` | 使用するタスク定義のリビジョン | 最新のリビジョン |
-| `--format` | 出力形式（yaml/json） | `yaml` |
-
-## 使用例
-
-### 基本的な使用方法
-
-```bash
-ecspresso appspec > appspec.yaml
-```
-
-### JSON形式での出力
-
-```bash
-ecspresso appspec --format json > appspec.json
-```
-
-### 特定のタスク定義リビジョンを使用
-
-```bash
-ecspresso appspec --revision 10 > appspec.yaml
-```
+| オプション | 説明 |
+|------------|------|
+| `--config` | 設定ファイルのパス（デフォルト: ecspresso.yml） |
+| `--task-definition` | タスク定義のJSONファイルパス |
+| `--base-task-definition` | ベースとなるタスク定義のJSONファイルパス |
 
 ## 出力例
 
@@ -52,26 +31,18 @@ Resources:
   - TargetService:
       Type: AWS::ECS::Service
       Properties:
-        TaskDefinition: "arn:aws:ecs:ap-northeast-1:123456789012:task-definition/your-task-definition:10"
+        TaskDefinition: "arn:aws:ecs:ap-northeast-1:123456789012:task-definition/myservice:10"
         LoadBalancerInfo:
           ContainerName: "web"
           ContainerPort: 80
-        PlatformVersion: "1.4.0"
 ```
 
-## Blue/Greenデプロイメントでの使用
+## 使用例
 
-`appspec`コマンドは、CodeDeployを使用したBlue/Greenデプロイメントを設定する際に使用します。ecspresso.ymlにCodeDeployの設定を追加した後、このコマンドを使用してAppSpecファイルを生成できます。
+CodeDeployを使用したBlue/GreenデプロイメントのためのAppSpecファイルを生成します。
 
-```yaml
-# ecspresso.yml
-codedeploy:
-  application_name: AppECS-your-cluster-your-service
-  deployment_group_name: DgpECS-your-cluster-your-service
-  deployment_config_name: CodeDeployDefault.ECSAllAtOnce
+```console
+$ ecspresso appspec --config ecspresso.yml > appspec.yaml
 ```
 
-## 関連コマンド
-
-- [deploy](./deploy.html) - サービスをデプロイ
-- [render](./render.html) - 設定、サービス定義、またはタスク定義ファイルをSTDOUTに出力
+このコマンドは、現在のタスク定義とサービス定義から、CodeDeployで使用するためのAppSpecファイルを生成し、`appspec.yaml`ファイルに保存します。

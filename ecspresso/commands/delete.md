@@ -1,83 +1,51 @@
 ---
 layout: default
 title: delete
-nav_order: 2
 parent: コマンドリファレンス
-grand_parent: ecspresso
+nav_order: 2
 ---
 
 # delete
 
-`delete`コマンドは、ECSサービスを削除するために使用します。
+`delete`コマンドは、ECSサービスを削除します。
 
-## 構文
+## 使い方
 
-```
-ecspresso delete [オプション]
+```console
+$ ecspresso delete --config ecspresso.yml
 ```
 
 ## オプション
 
-| オプション | 説明 | デフォルト値 |
-|------------|------|-------------|
-| `--dry-run` | 実際の変更を行わずに実行内容を表示 | `false` |
-| `--force` | 確認プロンプトをスキップ | `false` |
+| オプション | 説明 |
+|------------|------|
+| `--config` | 設定ファイルのパス（デフォルト: ecspresso.yml） |
+| `--force` | 確認プロンプトをスキップして強制的に削除 |
 
 ## 使用例
 
-### 基本的な使用方法
-
-```bash
-ecspresso delete
+```console
+$ ecspresso delete --config ecspresso.yml
 ```
 
 このコマンドを実行すると、確認プロンプトが表示されます。
 
-### 確認プロンプトをスキップして削除
-
-```bash
-ecspresso delete --force
+```
+2019/10/15 22:47:07 myService/default Start deleting service
+Service: myService
+Cluster: default
+Are you sure want to delete? [y/N]
 ```
 
-### ドライランモードでの実行
+`y`を入力すると、サービスが削除されます。
 
-```bash
-ecspresso delete --dry-run
 ```
-
-## 削除プロセス
-
-サービスを削除する前に、ecspressoは以下の手順を実行します：
-
-1. サービスの希望タスク数を0に設定
-2. すべてのタスクが停止するまで待機
-3. サービスを削除
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant Ecspresso
-    participant ECS
-    
-    User->>Ecspresso: delete
-    Ecspresso->>User: 確認プロンプト
-    User->>Ecspresso: 確認
-    Ecspresso->>ECS: UpdateService (desiredCount=0)
-    ECS-->>Ecspresso: サービスを更新
-    Ecspresso->>ECS: DescribeServices（タスクが停止するまで待機）
-    ECS-->>Ecspresso: サービスのステータス
-    Ecspresso->>ECS: DeleteService
-    ECS-->>Ecspresso: サービスを削除
-    Ecspresso-->>User: 削除完了
+2019/10/15 22:47:09 myService/default Deleting service
+2019/10/15 22:47:09 myService/default Service is deleted
 ```
 
 ## 注意事項
 
 - サービスを削除すると、関連するタスクも停止されますが、タスク定義は削除されません。
-- ロードバランサーやターゲットグループなどの関連リソースも削除されません。
-- 削除操作は元に戻せないため、特に本番環境では注意が必要です。
-
-## 関連コマンド
-
-- [deploy](./deploy.html) - サービスをデプロイ
-- [scale](./scale.html) - サービスをスケール（タスク数を変更）
+- 削除したサービスは復元できません。
+- ロードバランサーやターゲットグループなどの関連リソースは自動的に削除されないため、必要に応じて手動で削除する必要があります。

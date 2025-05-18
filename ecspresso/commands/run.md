@@ -1,108 +1,103 @@
 ---
 layout: default
 title: run
-nav_order: 13
 parent: コマンドリファレンス
-grand_parent: ecspresso
+nav_order: 13
 ---
 
 # run
 
-`run`コマンドは、ECSタスクを一時的に実行するために使用します。
+`run`コマンドは、ECSタスクを実行します。サービスとは関係なく、一時的なタスクを実行するために使用します。
 
-## 構文
+## 使い方
 
-```
-ecspresso run [オプション]
+```console
+$ ecspresso run --config ecspresso.yml
 ```
 
 ## オプション
 
-| オプション | 説明 | デフォルト値 |
-|------------|------|-------------|
-| `--dry-run` | 実際の変更を行わずに実行内容を表示 | `false` |
-| `--count` | 実行するタスクの数 | `1` |
-| `--group` | タスクグループ名 | `` |
-| `--container-instances` | タスクを実行するコンテナインスタンスのARN（カンマ区切り） | `` |
-| `--overrides` | タスク定義のオーバーライド（JSON形式） | `` |
-| `--skip-task-definition` | 新しいタスク定義の登録をスキップ | `false` |
-| `--revision` | `--skip-task-definition`指定時に使用するタスク定義のリビジョン | `0` |
-| `--launch-type` | 起動タイプ（EC2/FARGATE） | （設定ファイルの値） |
-| `--network-configuration` | ネットワーク設定（JSON形式） | （設定ファイルの値） |
-| `--platform-version` | プラットフォームバージョン（FARGATE起動タイプの場合） | （設定ファイルの値） |
-| `--capacity-provider-strategy` | キャパシティプロバイダー戦略（JSON形式） | （設定ファイルの値） |
-| `--started-by` | タスクの開始者 | `ecspresso` |
-| `--wait/--no-wait` | タスクが完了するまで待機するかどうか | `false` |
-| `--latest-task-definition` | 新しいタスク定義を登録せずに最新のタスク定義でタスクを実行 | `false` |
+| オプション | 説明 |
+|------------|------|
+| `--config` | 設定ファイルのパス（デフォルト: ecspresso.yml） |
+| `--task-definition` | タスク定義のJSONファイルパス |
+| `--revision` | 使用するタスク定義のリビジョン |
+| `--latest-task-definition` | 最新のタスク定義を使用 |
+| `--count` | 実行するタスクの数（デフォルト: 1） |
+| `--launch-type` | 起動タイプ（EC2、FARGATE） |
+| `--network-configuration` | ネットワーク設定（JSON形式） |
+| `--cluster` | ECSクラスター名 |
+| `--capacity-provider-strategy` | キャパシティプロバイダー戦略（JSON形式） |
+| `--overrides` | タスク定義のオーバーライド（JSON形式） |
+| `--container-overrides` | コンテナ定義のオーバーライド（JSON形式） |
+| `--skip-task-definition` | タスク定義の登録をスキップ |
+| `--wait` | タスクが完了するまで待機 |
+| `--no-wait` | タスクが完了するまで待機しない（デフォルト） |
+| `--timeout` | タイムアウト時間 |
+| `--dry-run` | 実際にタスクを実行せずに実行内容を表示 |
 
 ## 使用例
 
 ### 基本的な使用方法
 
-```bash
-ecspresso run
+```console
+$ ecspresso run --config ecspresso.yml
 ```
 
-### コマンドをオーバーライドして実行
+### 特定のタスク定義ファイルを使用
 
-```bash
-ecspresso run --overrides '{"containerOverrides":[{"name":"app","command":["echo", "hello world"]}]}'
+```console
+$ ecspresso run --config ecspresso.yml --task-definition my-task-def.json
 ```
 
 ### 複数のタスクを実行
 
-```bash
-ecspresso run --count 3
+```console
+$ ecspresso run --config ecspresso.yml --count 3
+```
+
+### コマンドをオーバーライド
+
+```console
+$ ecspresso run --config ecspresso.yml --container-overrides '{"name":"app","command":["echo","hello"]}'
 ```
 
 ### タスクが完了するまで待機
 
-```bash
-ecspresso run --wait
+```console
+$ ecspresso run --config ecspresso.yml --wait
 ```
 
-### 特定のコンテナインスタンスでタスクを実行
-
-```bash
-ecspresso run --container-instances arn:aws:ecs:ap-northeast-1:123456789012:container-instance/12345678-1234-1234-1234-123456789012
-```
-
-## タスク実行プロセス
-
-`run`コマンドは、以下の手順を実行します：
-
-1. タスク定義を登録（`--skip-task-definition`が指定されていない場合）
-2. タスクを実行
-3. オプションでタスクが完了するまで待機
+## タスク実行フロー
 
 ```mermaid
 sequenceDiagram
-    participant User
-    participant Ecspresso
-    participant ECS
+    participant User as ユーザー
+    participant Ecspresso as ecspresso
+    participant ECS as Amazon ECS
     
-    User->>Ecspresso: run
-    opt skip-task-definition=false
-        Ecspresso->>ECS: RegisterTaskDefinition
+    User->>Ecspresso: run コマンド実行
+    Ecspresso->>Ecspresso: タスク定義を読み込み
+    
+    alt skip-task-definition=false
+        Ecspresso->>ECS: 新しいタスク定義を登録
         ECS-->>Ecspresso: タスク定義ARN
     end
-    Ecspresso->>ECS: RunTask
+    
+    Ecspresso->>ECS: タスクを実行
     ECS-->>Ecspresso: タスクARN
-    opt wait=true
-        Ecspresso->>ECS: DescribeTasks（完了するまで待機）
-        ECS-->>Ecspresso: タスクのステータス
+    
+    alt wait=true
+        Ecspresso->>ECS: タスクの完了を待機
+        ECS-->>Ecspresso: タスク完了通知
     end
-    Ecspresso-->>User: 実行完了
+    
+    Ecspresso-->>User: タスク実行完了
 ```
 
-## ユースケース
+## 注意事項
 
-- バッチ処理の実行
-- データベースマイグレーションの実行
-- メンテナンスタスクの実行
-- デバッグ目的でのコンテナの起動
-
-## 関連コマンド
-
-- [exec](./exec.html) - タスク上でコマンドを実行
-- [tasks](./tasks.html) - サービス内またはタスク定義ファミリー内のタスクを一覧表示
+- このコマンドはサービスを更新せず、一時的なタスクを実行します。
+- デフォルトでは、タスクの完了を待機しません。
+- タスクが失敗した場合でも、エラーコードは返されません（`--wait`オプションを使用した場合を除く）。
+- Fargateを使用する場合は、ネットワーク設定が必要です。

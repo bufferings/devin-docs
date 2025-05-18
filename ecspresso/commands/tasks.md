@@ -1,94 +1,81 @@
 ---
 layout: default
 title: tasks
-nav_order: 16
 parent: コマンドリファレンス
-grand_parent: ecspresso
+nav_order: 16
 ---
 
 # tasks
 
-`tasks`コマンドは、サービス内またはタスク定義ファミリー内のタスクを一覧表示するために使用します。
+`tasks`コマンドは、サービス内または同じファミリーを持つタスクをリストします。
 
-## 構文
+## 使い方
 
-```
-ecspresso tasks [オプション]
+```console
+$ ecspresso tasks --config ecspresso.yml
 ```
 
 ## オプション
 
-| オプション | 説明 | デフォルト値 |
-|------------|------|-------------|
-| `--id` | 特定のタスクIDを表示 | `` |
-| `--output` | 出力形式（table/json） | `table` |
-| `--find-stopped` | 停止したタスクも含める | `false` |
-| `--status` | フィルタリングするタスクのステータス（RUNNING/STOPPED/...） | `` |
-| `--container-instance` | コンテナインスタンスでフィルタリング | `false` |
-| `--task-definition` | タスク定義でフィルタリング | `false` |
-| `--filter` | タスクをフィルタリングするための式 | `` |
+| オプション | 説明 |
+|------------|------|
+| `--config` | 設定ファイルのパス（デフォルト: ecspresso.yml） |
+| `--id-only` | タスクIDのみを表示 |
+| `--output` | 出力形式（table、json、tsv）（デフォルト: table） |
+| `--find-stopped` | 停止したタスクも表示 |
+| `--status` | 表示するタスクのステータス（RUNNING、STOPPED、ALL）（デフォルト: RUNNING） |
 
 ## 使用例
 
 ### 基本的な使用方法
 
-```bash
-ecspresso tasks
+```console
+$ ecspresso tasks --config ecspresso.yml
 ```
 
-### 停止したタスクも含めて表示
+### タスクIDのみを表示
 
-```bash
-ecspresso tasks --find-stopped
-```
-
-### 特定のステータスのタスクのみを表示
-
-```bash
-ecspresso tasks --status RUNNING
+```console
+$ ecspresso tasks --config ecspresso.yml --id-only
 ```
 
 ### JSON形式で出力
 
-```bash
-ecspresso tasks --output json
+```console
+$ ecspresso tasks --config ecspresso.yml --output json
 ```
 
-### 特定のタスクの詳細を表示
+### 停止したタスクも表示
 
-```bash
-ecspresso tasks --id 12345678-1234-1234-1234-123456789012
+```console
+$ ecspresso tasks --config ecspresso.yml --find-stopped
+```
+
+### 特定のステータスのタスクを表示
+
+```console
+$ ecspresso tasks --config ecspresso.yml --status STOPPED
 ```
 
 ## 出力例
 
 ```
-ID                                    STATUS   TASK DEFINITION   STARTED     STOPPED
-12345678-1234-1234-1234-123456789012  RUNNING  myapp:10         2023-01-01  -
-23456789-2345-2345-2345-234567890123  RUNNING  myapp:10         2023-01-01  -
-34567890-3456-3456-3456-345678901234  STOPPED  myapp:9          2022-12-31  2023-01-01
+ID                                          STATUS    TASK DEFINITION                                                 STARTED     STOPPED
+12345678-1234-1234-1234-123456789012        RUNNING   arn:aws:ecs:ap-northeast-1:123456789012:task-definition/myapp:3  2h ago      -
+23456789-2345-2345-2345-234567890123        RUNNING   arn:aws:ecs:ap-northeast-1:123456789012:task-definition/myapp:3  30m ago     -
 ```
 
-## タスク管理のワークフロー
+## 使用シナリオ
 
-```mermaid
-flowchart TD
-    A[タスクの一覧表示] --> B{問題のあるタスク?}
-    B -->|Yes| C[タスクの詳細確認]
-    B -->|No| D[完了]
-    C --> E[問題の調査]
-    E --> F[タスクの停止または再起動]
-    F --> A
-```
+`tasks`コマンドは、以下のような場合に便利です：
+
+1. 実行中のタスクを確認したい場合
+2. タスクIDを取得して`exec`コマンドで接続したい場合
+3. 停止したタスクの情報を確認したい場合
+4. タスクの実行時間を確認したい場合
 
 ## 注意事項
 
-- デフォルトでは、実行中のタスクのみが表示されます。停止したタスクも表示するには、`--find-stopped`オプションを使用します。
-- `--id`オプションを使用すると、特定のタスクの詳細情報が表示されます。
-- `--filter`オプションを使用すると、複雑な条件でタスクをフィルタリングできます。
-
-## 関連コマンド
-
-- [status](./status.html) - サービスの状態を表示
-- [exec](./exec.html) - タスク上でコマンドを実行
-- [run](./run.html) - タスクを実行
+- このコマンドはタスクの一覧を表示するだけで、変更は行いません。
+- デフォルトでは、実行中のタスクのみが表示されます。
+- `--find-stopped`オプションを使用すると、停止したタスクも表示されます。

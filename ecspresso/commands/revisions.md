@@ -1,81 +1,64 @@
 ---
 layout: default
 title: revisions
-nav_order: 11
 parent: コマンドリファレンス
-grand_parent: ecspresso
+nav_order: 11
 ---
 
 # revisions
 
-`revisions`コマンドは、タスク定義のリビジョンを表示するために使用します。
+`revisions`コマンドは、タスク定義のリビジョンを表示します。
 
-## 構文
+## 使い方
 
-```
-ecspresso revisions [オプション]
+```console
+$ ecspresso revisions --config ecspresso.yml
 ```
 
 ## オプション
 
-| オプション | 説明 | デフォルト値 |
-|------------|------|-------------|
-| `--max-items` | 表示するリビジョンの最大数 | `100` |
-| `--output` | 出力形式（table/json） | `table` |
+| オプション | 説明 |
+|------------|------|
+| `--config` | 設定ファイルのパス（デフォルト: ecspresso.yml） |
+| `--task-definition` | タスク定義のJSONファイルパス |
+| `--max-rows` | 表示する最大行数（デフォルト: 100） |
 
 ## 使用例
 
 ### 基本的な使用方法
 
-```bash
-ecspresso revisions
+```console
+$ ecspresso revisions --config ecspresso.yml
 ```
 
-### 最大表示数を指定
+### 表示する最大行数を指定
 
-```bash
-ecspresso revisions --max-items 10
-```
-
-### JSON形式で出力
-
-```bash
-ecspresso revisions --output json
+```console
+$ ecspresso revisions --config ecspresso.yml --max-rows 10
 ```
 
 ## 出力例
 
 ```
-FAMILY  REVISION        REGISTERED                      STATUS
-myapp   10              2023-01-01 12:00:00 +0900 JST   ACTIVE
-myapp   9               2022-12-31 12:00:00 +0900 JST   ACTIVE
-myapp   8               2022-12-30 12:00:00 +0900 JST   INACTIVE
-myapp   7               2022-12-29 12:00:00 +0900 JST   INACTIVE
+FAMILY  REVISION        REGISTERED AT           STATUS
+myapp   21      2023-04-01 12:34:56 +0900 JST   ACTIVE
+myapp   20      2023-03-30 15:45:12 +0900 JST   ACTIVE
+myapp   19      2023-03-25 09:12:34 +0900 JST   ACTIVE
+myapp   18      2023-03-20 18:23:45 +0900 JST   INACTIVE
+myapp   17      2023-03-15 14:56:23 +0900 JST   INACTIVE
 ```
 
-## リビジョン管理のワークフロー
+## 使用シナリオ
 
-タスク定義のリビジョン管理は、ECSサービスの変更履歴を追跡するのに役立ちます。
+`revisions`コマンドは、以下のような場合に便利です：
 
-```mermaid
-flowchart TD
-    A[タスク定義の更新] --> B[新しいリビジョンの登録]
-    B --> C[サービスのデプロイ]
-    C --> D{問題発生?}
-    D -->|Yes| E[以前のリビジョンにロールバック]
-    D -->|No| F[次の更新]
-    E --> C
-    F --> A
-```
+1. 過去のデプロイ履歴を確認したい場合
+2. ロールバック先のリビジョンを選択したい場合
+3. 不要なリビジョンを特定して登録解除したい場合
 
 ## 注意事項
 
-- リビジョンは、タスク定義が登録されるたびに自動的に増加します。
-- `ACTIVE`状態のリビジョンは、新しいタスクの起動に使用できます。
-- `INACTIVE`状態のリビジョンは、新しいタスクの起動には使用できませんが、実行中のタスクには影響しません。
-
-## 関連コマンド
-
-- [register](./register.html) - タスク定義を登録
-- [deregister](./deregister.html) - タスク定義を登録解除
-- [rollback](./rollback.html) - サービスをロールバック
+- このコマンドはタスク定義のリビジョンを表示するだけで、変更は行いません。
+- デフォルトでは最新の100リビジョンが表示されます。
+- `ACTIVE`ステータスのタスク定義は、新しいタスクの起動に使用できます。
+- `INACTIVE`ステータスのタスク定義は、登録解除されたものです。

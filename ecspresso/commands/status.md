@@ -1,91 +1,64 @@
 ---
 layout: default
 title: status
-nav_order: 15
 parent: コマンドリファレンス
-grand_parent: ecspresso
+nav_order: 15
 ---
 
 # status
 
-`status`コマンドは、ECSサービスの現在の状態を表示するために使用します。
+`status`コマンドは、ECSサービスの現在のステータスを表示します。
 
-## 構文
+## 使い方
 
-```
-ecspresso status [オプション]
+```console
+$ ecspresso status --config ecspresso.yml
 ```
 
 ## オプション
 
-| オプション | 説明 | デフォルト値 |
-|------------|------|-------------|
-| `--events` | サービスイベントを表示 | `false` |
-| `--tasks` | サービス内のタスクを表示 | `false` |
-| `--output` | 出力形式（table/json） | `table` |
+| オプション | 説明 |
+|------------|------|
+| `--config` | 設定ファイルのパス（デフォルト: ecspresso.yml） |
+| `--events` | サービスイベントを表示 |
 
 ## 使用例
 
 ### 基本的な使用方法
 
-```bash
-ecspresso status
+```console
+$ ecspresso status --config ecspresso.yml
 ```
 
 ### サービスイベントを表示
 
-```bash
-ecspresso status --events
-```
-
-### サービス内のタスクを表示
-
-```bash
-ecspresso status --tasks
-```
-
-### JSON形式で出力
-
-```bash
-ecspresso status --output json
+```console
+$ ecspresso status --config ecspresso.yml --events
 ```
 
 ## 出力例
 
 ```
-Service: myapp
-Status: ACTIVE
-TaskDefinition: myapp:10
+Service: myService
+Cluster: default
+TaskDefinition: myService:3
 Deployments:
-  PRIMARY myapp:10 desired:3 pending:0 running:3
+    PRIMARY myService:3 desired:1 pending:0 running:1
 Events:
-  2023-01-01 12:00:00 +0900 JST (service myapp) has reached a steady state.
-Tasks:
-  RUNNING 12345678-1234-1234-1234-123456789012 myapp:10 10.0.0.1
-  RUNNING 23456789-2345-2345-2345-234567890123 myapp:10 10.0.0.2
-  RUNNING 34567890-3456-3456-3456-345678901234 myapp:10 10.0.0.3
+    2017/11/09 23:20:13 (service myService) has reached a steady state.
+    2017/11/09 23:20:13 (service myService) registered 1 targets in target-group tf-myService-01234567
 ```
 
-## ステータス確認のワークフロー
+## 使用シナリオ
 
-```mermaid
-flowchart TD
-    A[デプロイ実行] --> B[ステータス確認]
-    B --> C{問題あり?}
-    C -->|Yes| D[問題の調査]
-    C -->|No| E[完了]
-    D --> F[問題の修正]
-    F --> A
-```
+`status`コマンドは、以下のような場合に便利です：
+
+1. サービスの現在の状態を確認したい場合
+2. デプロイメントの進行状況を確認したい場合
+3. サービスに関連するイベントを確認したい場合
+4. タスクの実行状況を確認したい場合
 
 ## 注意事項
 
-- `--events`オプションを使用すると、最近のサービスイベントが表示されます。これは、デプロイの問題を診断するのに役立ちます。
-- `--tasks`オプションを使用すると、サービス内の現在のタスクが表示されます。これは、個々のタスクの状態を確認するのに役立ちます。
-- デプロイ後にサービスが安定しているかどうかを確認するために、`status`コマンドを使用することをお勧めします。
-
-## 関連コマンド
-
-- [deploy](./deploy.html) - サービスをデプロイ
-- [tasks](./tasks.html) - サービス内またはタスク定義ファミリー内のタスクを一覧表示
-- [wait](./wait.html) - サービスが安定するまで待機
+- このコマンドはサービスの状態を表示するだけで、変更は行いません。
+- `--events`オプションを使用すると、最近のサービスイベントが表示されます。

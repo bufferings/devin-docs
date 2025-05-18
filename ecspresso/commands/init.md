@@ -1,82 +1,88 @@
 ---
 layout: default
 title: init
-nav_order: 7
 parent: コマンドリファレンス
-grand_parent: ecspresso
+nav_order: 7
 ---
 
 # init
 
-`init`コマンドは、既存のECSサービスまたはタスク定義から、ecspressoの設定ファイルとリソース定義ファイルを作成します。
+`init`コマンドは、既存のECSサービスから設定ファイルを作成します。これはecspressoを使い始める際の最初のステップです。
 
-## 構文
+## 使い方
 
-```
-ecspresso init [オプション]
+```console
+$ ecspresso init --region ap-northeast-1 --cluster default --service myservice --config ecspresso.yml
 ```
 
 ## オプション
 
-| オプション | 説明 | デフォルト値 |
-|------------|------|-------------|
-| `--region` | AWS リージョン | AWS_REGION環境変数の値 |
-| `--cluster` | ECSクラスター名 | `default` |
-| `--service` | ECSサービス名 | （必須） |
-| `--task-definition` | ECSタスク定義の名前:リビジョン | （必須） |
-| `--task-definition-path` | 出力するタスク定義ファイルのパス | `ecs-task-def.json` |
-| `--service-definition-path` | 出力するサービス定義ファイルのパス | `ecs-service-def.json` |
-| `--sort/--no-sort` | タスク定義の要素をソートするか | `false` |
-| `--force-overwrite` | 既存のファイルを上書きするか | `false` |
-| `--jsonnet` | ファイルをjsonnet形式で出力するか | `false` |
-
-※ `--service`と`--task-definition`は排他的です。
+| オプション | 説明 |
+|------------|------|
+| `--region` | AWSリージョン |
+| `--cluster` | ECSクラスター名 |
+| `--service` | ECSサービス名 |
+| `--config` | 作成する設定ファイルのパス（デフォルト: ecspresso.yml） |
+| `--task-definition` | 作成するタスク定義のJSONファイルパス（デフォルト: ecs-task-def.json） |
+| `--service-definition` | 作成するサービス定義のJSONファイルパス（デフォルト: ecs-service-def.json） |
+| `--appspec-definition` | 作成するAppSpec定義のJSONファイルパス |
+| `--skip-task-definition` | タスク定義の作成をスキップ |
+| `--skip-service-definition` | サービス定義の作成をスキップ |
+| `--no-load-balancer` | ロードバランサー設定を含めない |
+| `--format` | 出力形式（json, yaml, jsonnet）（デフォルト: json） |
 
 ## 使用例
 
-### 既存のサービスから初期化
+### 基本的な使用方法
 
-```bash
-ecspresso init --region ap-northeast-1 --cluster my-cluster --service my-service
+```console
+$ ecspresso init --region ap-northeast-1 --cluster default --service myservice --config ecspresso.yml
+2019/10/12 01:31:48 myservice/default save service definition to ecs-service-def.json
+2019/10/12 01:31:48 myservice/default save task definition to ecs-task-def.json
+2019/10/12 01:31:48 myservice/default save config to ecspresso.yml
 ```
 
-### 特定のタスク定義から初期化
+### YAML形式で出力
 
-```bash
-ecspresso init --region ap-northeast-1 --cluster my-cluster --task-definition my-family:3
+```console
+$ ecspresso init --region ap-northeast-1 --cluster default --service myservice --config ecspresso.yml --format yaml
 ```
 
-### Jsonnet形式での出力
+### Jsonnet形式で出力
 
-```bash
-ecspresso init --region ap-northeast-1 --cluster my-cluster --service my-service --jsonnet
+```console
+$ ecspresso init --region ap-northeast-1 --cluster default --service myservice --config ecspresso.yml --format jsonnet
 ```
 
-## 初期化プロセス図
+### ロードバランサー設定を含めない
 
-```mermaid
-flowchart TD
-    A[開始] --> B{サービス指定?}
-    B -->|Yes| C[ECSサービス情報取得]
-    B -->|No| D[タスク定義情報取得]
-    C --> E[サービス定義ファイル作成]
-    C --> F[タスク定義ファイル取得]
-    D --> F
-    F --> G[タスク定義ファイル作成]
-    E --> H[設定ファイル作成]
-    G --> H
-    H --> I[終了]
+```console
+$ ecspresso init --region ap-northeast-1 --cluster default --service myservice --config ecspresso.yml --no-load-balancer
 ```
 
-## 出力ファイル
+## 生成されるファイル
 
-init コマンドは次のファイルを生成します：
+### ecspresso.yml
 
-1. `ecspresso.yml` - ecspressoの設定ファイル
-2. `ecs-service-def.json` - ECSサービス定義（`--service`指定時のみ）
-3. `ecs-task-def.json` - ECSタスク定義
+```yaml
+region: ap-northeast-1
+cluster: default
+service: myservice
+service_definition: ecs-service-def.json
+task_definition: ecs-task-def.json
+timeout: 10m
+```
 
-## 関連コマンド
+### ecs-service-def.json
 
-- [render](./render.html) - 設定、サービス定義、またはタスク定義ファイルをSTDOUTに出力
-- [verify](./verify.html) - 設定内のリソースを検証
+サービス定義のJSONファイルが生成されます。
+
+### ecs-task-def.json
+
+タスク定義のJSONファイルが生成されます。
+
+## 注意事項
+
+- 既存のファイルがある場合は上書きされます。
+- 生成されたファイルは、必要に応じて編集できます。
+- 設定ファイルは、YAML、JSON、Jsonnet形式で出力できます。

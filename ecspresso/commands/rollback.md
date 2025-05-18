@@ -1,97 +1,95 @@
 ---
 layout: default
 title: rollback
-nav_order: 12
 parent: コマンドリファレンス
-grand_parent: ecspresso
+nav_order: 12
 ---
 
 # rollback
 
-`rollback`コマンドは、ECSサービスを以前のタスク定義にロールバックするために使用します。
+`rollback`コマンドは、サービスを以前のタスク定義にロールバックします。
 
-## 構文
+## 使い方
 
-```
-ecspresso rollback [オプション]
+```console
+$ ecspresso rollback --config ecspresso.yml
 ```
 
 ## オプション
 
-| オプション | 説明 | デフォルト値 |
-|------------|------|-------------|
-| `--dry-run` | 実際の変更を行わずに実行内容を表示 | `false` |
-| `--deregister-task-definition` | ロールバック後に現在のタスク定義を登録解除 | `false` |
-| `--wait/--no-wait` | サービスが安定するまで待機するかどうか | `true` |
-| `--wait-until` | どの状態まで待機するか（stable/deployed） | `stable` |
-| `--revision` | ロールバック先のタスク定義リビジョン | （自動選択） |
+| オプション | 説明 |
+|------------|------|
+| `--config` | 設定ファイルのパス（デフォルト: ecspresso.yml） |
+| `--revision` | ロールバック先のタスク定義リビジョン |
+| `--deregister` | ロールバック後に現在のタスク定義を登録解除 |
+| `--wait-until-stable` | サービスが安定するまで待機（デフォルト: true） |
+| `--no-wait-until-stable` | サービスが安定するまで待機しない |
+| `--dry-run` | 実際にロールバックを行わずに実行内容を表示 |
 
 ## 使用例
 
-### 基本的な使用方法（1つ前のリビジョンにロールバック）
+### 基本的な使用方法（直前のリビジョンにロールバック）
 
-```bash
-ecspresso rollback
+```console
+$ ecspresso rollback --config ecspresso.yml
 ```
 
 ### 特定のリビジョンにロールバック
 
-```bash
-ecspresso rollback --revision 10
+```console
+$ ecspresso rollback --config ecspresso.yml --revision 10
 ```
 
-### ドライランモードでの実行
+### ロールバック後に現在のタスク定義を登録解除
 
-```bash
-ecspresso rollback --dry-run
+```console
+$ ecspresso rollback --config ecspresso.yml --deregister
 ```
 
-### 現在のタスク定義を登録解除してロールバック
+### ドライランモードで実行内容を確認
 
-```bash
-ecspresso rollback --deregister-task-definition
+```console
+$ ecspresso rollback --config ecspresso.yml --dry-run
 ```
 
-## ロールバックプロセス
-
-`rollback`コマンドは、以下の手順を実行します：
-
-1. 現在のサービスで使用されているタスク定義を取得
-2. 以前のリビジョンを特定（または`--revision`オプションで指定されたリビジョン）
-3. サービスを更新して以前のタスク定義を使用
-4. オプションで現在のタスク定義を登録解除
+## ロールバックフロー
 
 ```mermaid
 sequenceDiagram
-    participant User
-    participant Ecspresso
-    participant ECS
+    participant User as ユーザー
+    participant Ecspresso as ecspresso
+    participant ECS as Amazon ECS
     
-    User->>Ecspresso: rollback
-    Ecspresso->>ECS: DescribeServices
-    ECS-->>Ecspresso: 現在のサービス情報
-    Ecspresso->>ECS: ListTaskDefinitions
-    ECS-->>Ecspresso: タスク定義のリスト
-    Ecspresso->>ECS: UpdateService
-    ECS-->>Ecspresso: サービスを更新
-    opt deregister-task-definition=true
-        Ecspresso->>ECS: DeregisterTaskDefinition
-        ECS-->>Ecspresso: タスク定義を登録解除
+    User->>Ecspresso: rollback コマンド実行
+    Ecspresso->>ECS: 現在のサービス情報を取得
+    ECS-->>Ecspresso: サービス情報
+    Ecspresso->>ECS: タスク定義リビジョンを取得
+    ECS-->>Ecspresso: タスク定義リビジョン一覧
+    
+    alt リビジョン指定あり
+        Ecspresso->>Ecspresso: 指定されたリビジョンを使用
+    else リビジョン指定なし
+        Ecspresso->>Ecspresso: 直前のリビジョンを使用
     end
-    opt wait=true
-        Ecspresso->>ECS: DescribeServices（安定するまで待機）
-        ECS-->>Ecspresso: サービスのステータス
+    
+    Ecspresso->>ECS: サービスを更新
+    ECS-->>Ecspresso: サービス更新開始
+    
+    alt wait-until-stable=true
+        Ecspresso->>ECS: サービスの安定を待機
+        ECS-->>Ecspresso: サービス安定通知
     end
+    
+    alt deregister=true
+        Ecspresso->>ECS: 現在のタスク定義を登録解除
+        ECS-->>Ecspresso: 登録解除完了
+    end
+    
     Ecspresso-->>User: ロールバック完了
 ```
 
-## ユースケース
+## 注意事項
 
-- デプロイに問題が発生した場合に、迅速に以前の安定したバージョンに戻す
-- 新しいバージョンのテスト後に、一時的に以前のバージョンに戻す
-- 誤ったデプロイを修正する
-
-## 関連コマンド
-
-- [deploy](./deploy.html) - サービスをデプロイ
-- [revisions](./revisions.html) - タスク定義のリビジョンを表示
+- リビジョンを指定しない場合、直前のリビジョンにロールバックされます。
+- ロールバック先のタスク定義が存在しない場合、エラーが発生します。
+- CodeDeployを使用したBlue/Greenデプロイメントの場合、このコマンドは使用できません。代わりにCodeDeployのロールバック機能を使用してください。

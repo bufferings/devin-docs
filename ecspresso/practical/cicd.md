@@ -1,18 +1,34 @@
 ---
 layout: default
-title: CI/CDパイプライン統合
-nav_order: 1
+title: CI/CDパイプラインとの統合
 parent: 実践ガイド
-grand_parent: ecspresso
+nav_order: 1
 ---
 
 # CI/CDパイプラインとの統合
 
-ecspressoは、継続的インテグレーション・継続的デリバリー（CI/CD）パイプラインとの統合が容易です。このガイドでは、一般的なCI/CDツールでecspressoを使用する方法を説明します。
+ecspressoはCI/CDパイプラインと簡単に統合できます。以下では、一般的なCI/CDサービスとの統合方法を説明します。
 
-## GitHubActions との統合
+## CircleCIとの統合
 
-GitHub Actionsでecspressoを使用する例：
+```yaml
+version: 2.1
+orbs:
+  ecspresso: fujiwara/ecspresso@2.0.4
+jobs:
+  deploy:
+    docker:
+      - image: cimg/base:2023.03
+    steps:
+      - checkout
+      - ecspresso/install:
+          version: v2.3.0
+      - run:
+          command: |
+            IMAGE_TAG=${CIRCLE_SHA1} ecspresso deploy --config ecspresso.yml
+```
+
+## GitHub Actionsとの統合
 
 ```yaml
 name: Deploy to ECS
@@ -25,95 +41,98 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
+      - uses: actions/checkout@v3
+      - uses: kayac/ecspresso@v2
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ap-northeast-1
-      
-      - name: Install ecspresso
-        run: |
-          wget https://github.com/kayac/ecspresso/releases/download/v2.0.0/ecspresso_2.0.0_linux_amd64.tar.gz
-          tar xzf ecspresso_2.0.0_linux_amd64.tar.gz
-          sudo mv ecspresso /usr/local/bin/
-      
-      - name: Build and push Docker image
-        run: |
-          # ここでDockerイメージをビルドしてECRにプッシュするコマンド
-      
-      - name: Deploy to ECS
-        run: |
-          ecspresso deploy
+          version: v2.3.0
+      - run: |
+          IMAGE_TAG=${GITHUB_SHA} ecspresso deploy --config ecspresso.yml
 ```
 
-## デプロイワークフローの図
+## AWS CodeBuildとの統合
+
+```yaml
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      golang: 1.20
+    commands:
+      - curl -sL https://github.com/kayac/ecspresso/releases/download/v2.3.0/ecspresso_v2.3.0_linux_amd64.tar.gz | tar zxvf - -C /usr/local/bin
+      - chmod +x /usr/local/bin/ecspresso
+  build:
+    commands:
+      - IMAGE_TAG=${CODEBUILD_RESOLVED_SOURCE_VERSION} ecspresso deploy --config ecspresso.yml
+```
+
+## デプロイフロー
 
 ```mermaid
 graph TD
-    A[コード変更をプッシュ] --> B[CI/CDパイプライン開始]
-    B --> C[テストの実行]
-    C --> D[Dockerイメージのビルド]
-    D --> E[Dockerイメージのプッシュ]
-    E --> F[ecspresso deployの実行]
-    F --> G[デプロイ完了通知]
-    
-    F --> H{デプロイ成功?}
-    H -->|Yes| G
-    H -->|No| I[ロールバック]
-    I --> J[失敗通知]
+  A[コードのコミット] --> B[CIでイメージビルド]
+  B --> C[イメージをECRへプッシュ]
+  C --> D[ecspressoでデプロイ]
+  D -->|ローリングデプロイ| E[ECSサービス更新]
+  D -->|Blue/Green| F[CodeDeployでデプロイ]
+  F --> G[トラフィック移行]
+  E --> H[デプロイ完了通知]
+  G --> H
 ```
 
-## 環境変数の管理
+## 環境変数の活用
 
-CI/CD環境では、環境変数ファイルを使用して異なる環境（開発、ステージング、本番）の設定を管理できます：
+CI/CDパイプラインでは、環境変数を使用してデプロイ設定を動的に変更できます。
 
-```bash
-# 開発環境へのデプロイ
-ecspresso deploy --envfile dev.env
-
-# ステージング環境へのデプロイ
-ecspresso deploy --envfile staging.env
-
-# 本番環境へのデプロイ
-ecspresso deploy --envfile production.env
+```yaml
+# タスク定義の例
+{
+  "containerDefinitions": [
+    {
+      "name": "app",
+      "image": "{{ must_env `ECR_REPOSITORY` }}:{{ must_env `IMAGE_TAG` }}",
+      "environment": [
+        {
+          "name": "ENV",
+          "value": "{{ must_env `DEPLOY_ENV` }}"
+        }
+      ]
+    }
+  ]
+}
 ```
 
 ## デプロイ前の検証
 
-CI/CDパイプラインでは、デプロイ前に設定の検証とdiffの確認を行うことをお勧めします：
+CI/CDパイプラインでは、デプロイ前に`verify`コマンドを実行して設定の問題を早期に発見できます。
 
-```bash
-# 設定の検証
-ecspresso verify
-
-# 差分の確認
-ecspresso diff
-
-# 問題がなければデプロイ
-ecspresso deploy
+```yaml
+steps:
+  - run:
+      command: |
+        ecspresso verify --config ecspresso.yml
+        ecspresso deploy --config ecspresso.yml
 ```
 
-## ロールバック戦略
+## 複数環境へのデプロイ
 
-デプロイが失敗した場合のロールバック戦略も実装することをお勧めします：
+CI/CDパイプラインで複数環境（開発、ステージング、本番）へのデプロイを管理できます。
 
-```bash
-# デプロイを試行
-if ! ecspresso deploy; then
-  echo "デプロイに失敗しました。ロールバックを実行します。"
-  ecspresso rollback
-  exit 1
-fi
+```yaml
+jobs:
+  deploy_dev:
+    steps:
+      - run: DEPLOY_ENV=dev ecspresso deploy --config ecspresso.yml
+  deploy_staging:
+    steps:
+      - run: DEPLOY_ENV=staging ecspresso deploy --config ecspresso.yml
+  deploy_prod:
+    steps:
+      - run: DEPLOY_ENV=prod ecspresso deploy --config ecspresso.yml
 ```
 
-## セキュリティのベストプラクティス
+## 注意事項
 
-CI/CD環境でecspressoを使用する際のセキュリティのベストプラクティス：
-
-1. 最小権限の原則に基づいたIAMロールを使用する
-2. 機密情報はCI/CDプラットフォームのシークレット管理機能を使用する
-3. AWS認証情報を直接スクリプトに埋め込まない
-4. 本番環境へのデプロイには承認ステップを追加する
+- CI/CDパイプラインでecspressoを使用する場合、適切なAWS認証情報が必要です。
+- 機密情報（AWS認証情報など）は、CI/CDサービスのシークレット管理機能を使用して安全に管理してください。
+- デプロイが失敗した場合の通知を設定することをお勧めします。

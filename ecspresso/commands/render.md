@@ -1,110 +1,67 @@
 ---
 layout: default
 title: render
-nav_order: 10
 parent: コマンドリファレンス
-grand_parent: ecspresso
+nav_order: 10
 ---
 
 # render
 
-`render`コマンドは、設定、サービス定義、またはタスク定義ファイルをSTDOUTにレンダリングします。テンプレート変数が展開され、最終的な設定を確認できます。
+`render`コマンドは、設定、サービス定義またはタスク定義ファイルを標準出力にレンダリングします。テンプレート変数が展開された状態で確認できます。
 
-## 構文
+## 使い方
 
-```
-ecspresso render [オプション]
+```console
+$ ecspresso render --config ecspresso.yml
 ```
 
 ## オプション
 
-| オプション | 説明 | デフォルト値 |
-|------------|------|-------------|
-| `--config-only` | 設定ファイルのみをレンダリング | `false` |
-| `--task-definition-only` | タスク定義のみをレンダリング | `false` |
-| `--service-definition-only` | サービス定義のみをレンダリング | `false` |
-| `--appspec-only` | AppSpecのみをレンダリング | `false` |
-| `--format` | 出力形式（json/yaml） | `json` |
+| オプション | 説明 |
+|------------|------|
+| `--config` | 設定ファイルのパス（デフォルト: ecspresso.yml） |
+| `--render-config` | 設定ファイルをレンダリング |
+| `--render-service` | サービス定義をレンダリング |
+| `--render-task` | タスク定義をレンダリング（デフォルト） |
+| `--task-definition` | タスク定義のJSONファイルパス |
+| `--service-definition` | サービス定義のJSONファイルパス |
 
 ## 使用例
 
-### 基本的な使用方法（すべての設定をレンダリング）
+### タスク定義をレンダリング（デフォルト）
 
-```bash
-ecspresso render
+```console
+$ ecspresso render --config ecspresso.yml
 ```
 
-### タスク定義のみをレンダリング
+### サービス定義をレンダリング
 
-```bash
-ecspresso render --task-definition-only
+```console
+$ ecspresso render --config ecspresso.yml --render-service
 ```
 
-### サービス定義のみをレンダリング
+### 設定ファイルをレンダリング
 
-```bash
-ecspresso render --service-definition-only
+```console
+$ ecspresso render --config ecspresso.yml --render-config
 ```
 
-### YAML形式で出力
+### 特定のタスク定義ファイルをレンダリング
 
-```bash
-ecspresso render --format yaml
+```console
+$ ecspresso render --config ecspresso.yml --task-definition my-task-def.json
 ```
 
-## テンプレート機能
+## 使用シナリオ
 
-`render`コマンドは、設定ファイル内のテンプレート変数を展開します。ecspressoは以下のテンプレート機能をサポートしています：
+`render`コマンドは、以下のような場合に便利です：
 
-1. 環境変数の参照
-```json
-{
-  "containerDefinitions": [
-    {
-      "name": "app",
-      "image": "{{ env `IMAGE_NAME` }}"
-    }
-  ]
-}
-```
+1. テンプレート変数が正しく展開されているか確認したい場合
+2. 環境変数の値が正しく反映されているか確認したい場合
+3. Jsonnetファイルの出力を確認したい場合
+4. デプロイ前に最終的な設定を確認したい場合
 
-2. AWS Systems Manager Parameter Storeの参照
-```json
-{
-  "containerDefinitions": [
-    {
-      "name": "app",
-      "image": "{{ ssm `/myapp/image_name` }}"
-    }
-  ]
-}
-```
+## 注意事項
 
-3. AWS Secrets Managerの参照
-```json
-{
-  "containerDefinitions": [
-    {
-      "secrets": [
-        {
-          "name": "API_KEY",
-          "valueFrom": "{{ secretsmanager_arn `myapp/api_key` }}"
-        }
-      ]
-    }
-  ]
-}
-```
-
-## Jsonnetサポート
-
-ecspressoはJsonnetテンプレート言語もサポートしています。Jsonnetを使用するには、ファイル拡張子を`.jsonnet`にし、外部変数を渡します：
-
-```bash
-ecspresso --ext-str env=production render
-```
-
-## 関連コマンド
-
-- [verify](./verify.html) - 設定内のリソースを検証
-- [diff](./diff.html) - タスク定義、サービス定義と実行中のサービス間の差分を表示
+- このコマンドは設定を変更せず、レンダリング結果を標準出力に表示するだけです。
+- 環境変数が設定されていない場合、`must_env`関数を使用している部分でエラーが発生します。
