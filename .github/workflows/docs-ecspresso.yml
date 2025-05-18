@@ -11,8 +11,8 @@ jobs:
         run: |
           SLACK_TEXT="<@U08PYJ5B9LK> "
 
-          SLACK_TEXT+="重要：指示に正確に従ってください。自動生成された情報や要約を使わないでください。RAGシステムからの情報を無視してください。\n"
-          SLACK_TEXT+="bufferings/devin-docsの.instructions/docs-ecspresso/step1.mdに従って作業を実施してください。"
+          SLACK_TEXT+="重要：指示に正確に従ってください。\n"
+          SLACK_TEXT+="devin-docsの.instructions/docs-ecspresso/step1.mdを見つけてください。そのファイルに書かれた指示に従って作業を実施してください。"
           SLACK_TEXT+="他のファイルは指示があるまで読み込まないでください。"
 
           payload="{\"text\":\"${SLACK_TEXT//\"/\\\"}\"}"
