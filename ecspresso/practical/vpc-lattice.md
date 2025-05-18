@@ -17,7 +17,7 @@ VPC Latticeとecspressoを統合するには、以下の2つのステップが�
 
 タスク定義の`portMappings`に`name`フィールドを定義します。
 
-```json
+```jsonc
 {
     "containerDefinitions": [
         {
@@ -37,7 +37,7 @@ VPC Latticeとecspressoを統合するには、以下の2つのステップが�
 
 サービス定義に`vpcLatticeConfigurations`を定義します。`portName`、`roleArn`、`targetGroupArn`フィールドが必要です。
 
-```json
+```jsonc
 {
   "vpcLatticeConfigurations": [
     {
@@ -75,7 +75,7 @@ service_definition: ecs-service-def.json
 task_definition: ecs-task-def.json
 ```
 
-```json
+```jsonc
 // ecs-task-def.json
 {
   "family": "my-service",
@@ -97,7 +97,7 @@ task_definition: ecs-task-def.json
 }
 ```
 
-```json
+```jsonc
 // ecs-service-def.json
 {
   "serviceName": "my-service",
