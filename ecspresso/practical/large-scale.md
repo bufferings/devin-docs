@@ -8,164 +8,36 @@ nav_order: 3
 
 # 大規模サービスの管理
 
-このページでは、ecspressoを使用して大規模なECSサービスやマイクロサービスアーキテクチャを管理する方法について説明します。
-
-## 大規模サービス管理の概要
-
-大規模なアプリケーションやマイクロサービスアーキテクチャでは、多数のECSサービスを管理する必要があります。ecspressoを使用すると、これらのサービスを効率的に管理できます。
-
-```mermaid
-graph TD
-    A[マイクロサービスアーキテクチャ] --> B[サービスA]
-    A --> C[サービスB]
-    A --> D[サービスC]
-    B --> E[ecspresso設定A]
-    C --> F[ecspresso設定B]
-    D --> G[ecspresso設定C]
-    E --> H[デプロイパイプラインA]
-    F --> I[デプロイパイプラインB]
-    G --> J[デプロイパイプラインC]
-```
-
-## マイクロサービスアーキテクチャの管理
-
-### ディレクトリ構造の例
-
-```
-.
-├── services
-│   ├── service-a
-│   │   ├── ecspresso.yml
-│   │   ├── ecs-task-def.json
-│   │   └── ecs-service-def.json
-│   ├── service-b
-│   │   ├── ecspresso.yml
-│   │   ├── ecs-task-def.json
-│   │   └── ecs-service-def.json
-│   └── service-c
-│       ├── ecspresso.yml
-│       ├── ecs-task-def.json
-│       └── ecs-service-def.json
-└── scripts
-    ├── deploy-all.sh
-    ├── status-all.sh
-    └── verify-all.sh
-```
-
-### デプロイスクリプトの例
-
-deploy-all.sh:
-```bash
-#!/bin/bash
-
-set -e
-
-SERVICES="service-a service-b service-c"
-ENV=$1
-
-if [ -z "$ENV" ]; then
-  echo "Usage: $0 <environment>"
-  exit 1
-fi
-
-for service in $SERVICES; do
-  echo "Deploying $service to $ENV environment..."
-  cd services/$service
-  ecspresso deploy --config ecspresso.yml --envfile=../../envs/$ENV.env
-  cd ../..
-done
-
-echo "All services deployed successfully!"
-```
-
-### ステータス確認スクリプトの例
-
-status-all.sh:
-```bash
-#!/bin/bash
-
-set -e
-
-SERVICES="service-a service-b service-c"
-ENV=$1
-
-if [ -z "$ENV" ]; then
-  echo "Usage: $0 <environment>"
-  exit 1
-fi
-
-for service in $SERVICES; do
-  echo "Checking status of $service in $ENV environment..."
-  cd services/$service
-  ecspresso status --config ecspresso.yml --envfile=../../envs/$ENV.env
-  cd ../..
-done
-```
-
-### 検証スクリプトの例
-
-verify-all.sh:
-```bash
-#!/bin/bash
-
-set -e
-
-SERVICES="service-a service-b service-c"
-ENV=$1
-
-if [ -z "$ENV" ]; then
-  echo "Usage: $0 <environment>"
-  exit 1
-fi
-
-for service in $SERVICES; do
-  echo "Verifying $service in $ENV environment..."
-  cd services/$service
-  ecspresso verify --config ecspresso.yml --envfile=../../envs/$ENV.env
-  cd ../..
-done
-
-echo "All services verified successfully!"
-```
+大規模なECSサービスを管理する場合、ecspressoはさまざまな機能を提供しています。このガイドでは、大規模サービスの管理に役立つecspressoの機能と戦略を説明します。
 
 ## Blue/Greenデプロイメント
 
-大規模なサービスでは、ダウンタイムを最小限に抑えるためにBlue/Greenデプロイメントを使用することが重要です。ecspressoは、AWS CodeDeployを使用したBlue/Greenデプロイメントをサポートしています。
+大規模なサービスでは、ダウンタイムなしでデプロイすることが重要です。ecspressoは、AWS CodeDeployを使用したBlue/Greenデプロイメントをサポートしています。
 
-### 設定例（ecspresso.yml）
+### 設定方法
+
+`ecspresso.yml`でCodeDeployを使用するように設定します：
 
 ```yaml
 region: ap-northeast-1
-cluster: default
-service: myservice
+cluster: your-cluster
+service: your-service
 task_definition: ecs-task-def.json
 service_definition: ecs-service-def.json
-codedeploy:
-  application_name: AppECS-default-myservice
-  deployment_group_name: DgpECS-default-myservice
-  deployment_config_name: CodeDeployDefault.ECSAllAtOnce
-  termination_wait_time_in_minutes: 5
-  auto_rollback_enabled: true
+appspec: appspec.yaml
 ```
 
-### サービス定義例（ecs-service-def.json）
+サービス定義でデプロイメントコントローラーを設定します：
 
 ```json
 {
   "deploymentController": {
     "type": "CODE_DEPLOY"
-  },
-  "loadBalancers": [
-    {
-      "containerName": "nginx",
-      "containerPort": 80,
-      "targetGroupArn": "{{ tfstate `aws_lb_target_group.blue.arn` }}"
-    }
-  ]
+  }
 }
 ```
 
-### AppSpec例
+AppSpecファイルの例：
 
 ```yaml
 version: 0.0
@@ -175,123 +47,213 @@ Resources:
       Properties:
         TaskDefinition: <TASK_DEFINITION>
         LoadBalancerInfo:
-          ContainerName: nginx
+          ContainerName: "app"
           ContainerPort: 80
         PlatformVersion: "1.4.0"
 Hooks:
   - BeforeInstall: "LambdaFunctionToValidateBeforeInstall"
   - AfterInstall: "LambdaFunctionToValidateAfterInstall"
   - AfterAllowTestTraffic: "LambdaFunctionToValidateAfterTestTrafficStarts"
-  - BeforeAllowTraffic: "LambdaFunctionToValidateBeforeAllowingProductionTraffic"
-  - AfterAllowTraffic: "LambdaFunctionToValidateAfterAllowingProductionTraffic"
+  - BeforeAllowTraffic: "LambdaFunctionToValidateBeforeTrafficShift"
+  - AfterAllowTraffic: "LambdaFunctionToValidateAfterTrafficShift"
 ```
 
-### Blue/Greenデプロイメントのフロー
+### デプロイコマンド
+
+```console
+$ ecspresso deploy --config ecspresso.yml --rollback-events DEPLOYMENT_FAILURE
+```
+
+### Blue/Greenデプロイメントフロー
 
 ```mermaid
-sequenceDiagram
-    participant User
-    participant Ecspresso
-    participant ECS
-    participant CodeDeploy
-    participant ALB
-
-    User->>Ecspresso: ecspresso deploy
-    Ecspresso->>ECS: 新しいタスク定義を登録
-    Ecspresso->>CodeDeploy: デプロイメントを作成
-    CodeDeploy->>ECS: 新しいタスクセットを作成（グリーン環境）
-    CodeDeploy->>ALB: テストリスナーにグリーン環境を登録
-    CodeDeploy-->>User: テスト期間
-    CodeDeploy->>ALB: 本番リスナーをグリーン環境に切り替え
-    CodeDeploy->>ECS: 古いタスクセット（ブルー環境）を終了
-    CodeDeploy-->>Ecspresso: デプロイメント完了
-    Ecspresso-->>User: デプロイ完了
+graph TD
+    A[ecspresso deploy] --> B[新しいタスク定義を登録]
+    B --> C[CodeDeployデプロイメントを作成]
+    C --> D[新しい環境（Green）にタスクをデプロイ]
+    D --> E[テストトラフィックを新環境に送信]
+    E --> F{テスト成功?}
+    F -->|Yes| G[本番トラフィックを徐々に新環境に移行]
+    F -->|No| H[ロールバック]
+    G --> I{デプロイ成功?}
+    I -->|Yes| J[古い環境（Blue）を終了]
+    I -->|No| H
+    H --> K[古い環境を維持]
+    J --> L[デプロイ完了]
+    K --> M[デプロイ失敗]
 ```
 
-## Auto Scaling
+## オートスケーリングの管理
 
-大規模なサービスでは、トラフィックの変動に対応するためにAuto Scalingを使用することが重要です。ecspressoは、ECSサービスのAuto Scaling設定をサポートしています。
+大規模サービスでは、オートスケーリングが重要です。ecspressoは、デプロイ中のオートスケーリングの管理をサポートしています。
 
-### Auto Scaling設定例
+### オートスケーリングの一時停止
+
+デプロイ中にオートスケーリングを一時停止することで、予期しないスケーリングを防ぎます：
+
+```console
+$ ecspresso deploy --config ecspresso.yml --suspend-auto-scaling
+```
+
+### オートスケーリングの再開
+
+デプロイ後にオートスケーリングを再開します：
+
+```console
+$ ecspresso deploy --config ecspresso.yml --suspend-auto-scaling --resume-auto-scaling
+```
+
+## 大規模デプロイの最適化
+
+大規模サービスのデプロイを最適化するためのオプションがあります：
+
+### デプロイメント設定のカスタマイズ
+
+サービス定義でデプロイメント設定をカスタマイズできます：
 
 ```json
 {
-  "cluster": "default",
-  "serviceName": "myservice",
-  "desiredCount": 2,
   "deploymentConfiguration": {
+    "deploymentCircuitBreaker": {
+      "enable": true,
+      "rollback": true
+    },
     "maximumPercent": 200,
     "minimumHealthyPercent": 100
   }
 }
 ```
 
-### Auto Scalingを一時停止してデプロイ
+### デプロイタイムアウトの設定
 
-```bash
-ecspresso deploy --config ecspresso.yml --suspend-auto-scaling
+長時間実行されるデプロイの場合、タイムアウト設定を調整します：
+
+```yaml
+# ecspresso.yml
+region: ap-northeast-1
+cluster: your-cluster
+service: your-service
+task_definition: ecs-task-def.json
+service_definition: ecs-service-def.json
+timeout: 30m  # 30分のタイムアウト
 ```
 
-### デプロイ後にAuto Scalingを再開
+## マイクロサービスアーキテクチャの管理
+
+多数のマイクロサービスを管理する場合、ecspressoは以下の方法で役立ちます：
+
+### サービスごとのディレクトリ構造
+
+```
+.
+├── services/
+│   ├── api/
+│   │   ├── ecspresso.yml
+│   │   ├── ecs-task-def.json
+│   │   └── ecs-service-def.json
+│   ├── worker/
+│   │   ├── ecspresso.yml
+│   │   ├── ecs-task-def.json
+│   │   └── ecs-service-def.json
+│   └── batch/
+│       ├── ecspresso.yml
+│       ├── ecs-task-def.json
+│       └── ecs-service-def.json
+└── scripts/
+    ├── deploy-all.sh
+    └── status-all.sh
+```
+
+### 一括デプロイスクリプトの例
 
 ```bash
-ecspresso deploy --config ecspresso.yml --resume-auto-scaling
+#!/bin/bash
+# deploy-all.sh
+
+set -e
+
+SERVICES=("api" "worker" "batch")
+
+for service in "${SERVICES[@]}"; do
+  echo "Deploying $service..."
+  cd "./services/$service"
+  ecspresso deploy --config ecspresso.yml
+  cd "../.."
+  echo "$service deployed successfully."
+done
+
+echo "All services deployed successfully."
+```
+
+### 一括ステータス確認スクリプトの例
+
+```bash
+#!/bin/bash
+# status-all.sh
+
+set -e
+
+SERVICES=("api" "worker" "batch")
+
+for service in "${SERVICES[@]}"; do
+  echo "Status of $service:"
+  cd "./services/$service"
+  ecspresso status --config ecspresso.yml
+  cd "../.."
+  echo "------------------------"
+done
 ```
 
 ## 大規模サービスのモニタリング
 
-大規模なサービスでは、サービスのステータスを定期的に確認することが重要です。ecspressoは、サービスのステータスを確認するための`status`コマンドを提供しています。
+大規模サービスのモニタリングには、以下のecspressoコマンドが役立ちます：
 
-```bash
-ecspresso status --config ecspresso.yml
+### サービスステータスの確認
+
+```console
+$ ecspresso status --config ecspresso.yml --events 20
 ```
 
-また、サービスが安定するまで待機するための`wait`コマンドも提供しています。
+### タスク一覧の確認
 
-```bash
-ecspresso wait --config ecspresso.yml
+```console
+$ ecspresso status --config ecspresso.yml --tasks
 ```
 
-## タスクの実行と管理
+### 特定のタスクでのコマンド実行
 
-大規模なサービスでは、メンテナンスやバッチ処理のためにタスクを実行することがあります。ecspressoは、タスクを実行するための`run`コマンドを提供しています。
-
-```bash
-ecspresso run --config ecspresso.yml
+```console
+$ ecspresso exec --config ecspresso.yml --command "ps aux" --container app --select
 ```
 
-また、タスク上でコマンドを実行するための`exec`コマンドも提供しています。
+## 大規模サービスのロールバック戦略
 
-```bash
-ecspresso exec --config ecspresso.yml --command "bash"
+問題が発生した場合のロールバック戦略：
+
+### 自動ロールバック
+
+デプロイ失敗時に自動的にロールバックするオプション：
+
+```console
+$ ecspresso deploy --config ecspresso.yml --rollback-events DEPLOYMENT_FAILURE
 ```
 
-## ベストプラクティス
+### 手動ロールバック
 
-### 1. サービスごとの設定ファイル
+特定のタスク定義リビジョンにロールバックする方法：
 
-各サービスに専用の設定ファイルを使用します。
+```console
+# 以前のリビジョンを確認
+$ ecspresso revisions --config ecspresso.yml
 
-### 2. 共通設定の共有
+# 特定のリビジョンにロールバック
+$ ecspresso rollback --config ecspresso.yml --revision 10
+```
 
-共通の設定は共有し、サービス固有の設定のみをサービスごとに設定します。
+## 注意事項
 
-### 3. デプロイスクリプトの使用
-
-複数のサービスをデプロイするためのスクリプトを使用します。
-
-### 4. Blue/Greenデプロイメントの使用
-
-ダウンタイムを最小限に抑えるためにBlue/Greenデプロイメントを使用します。
-
-### 5. Auto Scalingの使用
-
-トラフィックの変動に対応するためにAuto Scalingを使用します。
-
-### 6. モニタリングの実施
-
-サービスのステータスを定期的に確認します。
-
-### 7. CI/CDパイプラインの使用
-
-デプロイを自動化するためにCI/CDパイプラインを使用します。
+- 大規模サービスでは、デプロイ前に必ず`diff`コマンドで変更内容を確認してください
+- 本番環境へのデプロイは、オフピーク時に行うことをお勧めします
+- Blue/Greenデプロイメントを使用する場合、追加のリソースが必要になることに注意してください
+- 大規模なデプロイでは、タイムアウト設定を適切に行ってください
+- 複数のサービスをデプロイする場合、依存関係を考慮した順序でデプロイしてください

@@ -3,127 +3,107 @@ layout: default
 title: status
 parent: コマンドリファレンス
 grand_parent: ecspresso
-nav_order: 3
+nav_order: 6
 ---
 
 # status
 
-`status`コマンドは、ECSサービスの現在のステータスを表示します。
+`status`コマンドは、ECSサービスの現在の状態を表示します。サービスの実行状況、タスク数、イベント履歴などを確認できます。
 
 ## 基本的な使い方
 
-```bash
-ecspresso status --config CONFIG_FILE
+```console
+$ ecspresso status --config ecspresso.yml
 ```
 
 ## オプション
 
 | オプション | 説明 | デフォルト値 |
 |------------|------|-------------|
-| `--config` | 設定ファイルのパス | `ecspresso.yml` |
-| `--events` | サービスイベントを表示するかどうか | `false` |
-| `--output` | 出力形式（table, json, yaml） | `table` |
-
-## 詳細
-
-`status`コマンドは、以下の情報を表示します：
-
-1. サービスの基本情報（名前、クラスター、ステータス）
-2. デプロイメント情報（実行中のタスク数、保留中のタスク数）
-3. タスク定義情報（ARN、リビジョン）
-4. ネットワーク設定
-5. ロードバランサー設定
-6. Auto Scaling設定（有効な場合）
-7. サービスイベント（`--events`オプションが指定されている場合）
-
-## 出力例
-
-### テーブル形式（デフォルト）
-
-```
-Service: myservice
-Cluster: default
-Status: ACTIVE
-Desired: 2
-Running: 2
-Pending: 0
-TaskDefinition: arn:aws:ecs:ap-northeast-1:123456789012:task-definition/myservice:10
-```
-
-### JSON形式
-
-```json
-{
-  "service": {
-    "serviceArn": "arn:aws:ecs:ap-northeast-1:123456789012:service/default/myservice",
-    "serviceName": "myservice",
-    "clusterArn": "arn:aws:ecs:ap-northeast-1:123456789012:cluster/default",
-    "status": "ACTIVE",
-    "desiredCount": 2,
-    "runningCount": 2,
-    "pendingCount": 0,
-    "taskDefinition": "arn:aws:ecs:ap-northeast-1:123456789012:task-definition/myservice:10",
-    "deploymentConfiguration": {
-      "deploymentCircuitBreaker": {
-        "enable": false,
-        "rollback": false
-      },
-      "maximumPercent": 200,
-      "minimumHealthyPercent": 100
-    },
-    "deployments": [
-      {
-        "id": "ecs-svc/1234567890123456789",
-        "status": "PRIMARY",
-        "taskDefinition": "arn:aws:ecs:ap-northeast-1:123456789012:task-definition/myservice:10",
-        "desiredCount": 2,
-        "pendingCount": 0,
-        "runningCount": 2,
-        "createdAt": "2023-01-01T00:00:00Z",
-        "updatedAt": "2023-01-01T00:00:00Z"
-      }
-    ]
-  }
-}
-```
+| `--config FILE` | 設定ファイルのパス | `ecspresso.yml` |
+| `--events N` | 表示するイベント数 | `10` |
+| `--tasks` | タスク一覧も表示する | `false` |
+| `--output OUTPUT` | 出力形式（`table`または`json`） | `table` |
 
 ## 使用例
 
-### 基本的な使用例
+### 基本的な状態表示
 
-```bash
-ecspresso status --config ecspresso.yml
+```console
+$ ecspresso status --config ecspresso.yml
 ```
 
-### サービスイベントを表示する例
+### より多くのイベントを表示
 
-```bash
-ecspresso status --config ecspresso.yml --events
+```console
+$ ecspresso status --config ecspresso.yml --events 20
 ```
 
-### JSON形式で出力する例
+### タスク一覧も表示
 
-```bash
-ecspresso status --config ecspresso.yml --output json
+```console
+$ ecspresso status --config ecspresso.yml --tasks
 ```
 
-### YAML形式で出力する例
+### JSON形式で出力
 
-```bash
-ecspresso status --config ecspresso.yml --output yaml
+```console
+$ ecspresso status --config ecspresso.yml --output json
 ```
 
-## ワークフロー
+## 表示される情報
+
+`status`コマンドは、以下の情報を表示します：
+
+1. サービスの基本情報
+   - サービス名
+   - クラスター名
+   - タスク定義
+   - 起動タイプ（EC2、Fargate）
+   - デプロイメントコントローラーのタイプ
+
+2. デプロイメント情報
+   - 現在のデプロイメント
+   - 進行中のデプロイメント
+   - 希望するタスク数
+   - 実行中のタスク数
+   - 保留中のタスク数
+
+3. イベント履歴
+   - 最近のサービスイベント（デフォルトで10件）
+   - イベントの発生時刻
+   - イベントのメッセージ
+
+4. タスク情報（`--tasks`オプション使用時）
+   - タスクID
+   - タスクの状態
+   - 起動時刻
+   - 最終ステータス変更時刻
+
+## 状態確認フロー
+
+`status`コマンドの実行フローは以下の通りです：
 
 ```mermaid
 graph TD
-    A[ecspresso status] --> B[設定ファイル読み込み]
-    B --> C[AWSからサービス情報を取得]
-    C --> D[サービス情報を表示]
-    C --> E{--eventsオプションが指定されているか}
-    E -->|Yes| F[サービスイベントを取得]
-    F --> G[サービスイベントを表示]
-    E -->|No| H[終了]
-    D --> H
+    A[status開始] --> B[設定ファイル読み込み]
+    B --> C[サービス情報取得]
+    C --> D[デプロイメント情報取得]
+    D --> E[イベント履歴取得]
+    E --> F{--tasks指定?}
+    F -->|Yes| G[タスク一覧取得]
+    F -->|No| H[情報表示]
     G --> H
+    H --> I{--output指定}
+    I -->|table| J[テーブル形式で表示]
+    I -->|json| K[JSON形式で表示]
+    J --> L[完了]
+    K --> L
 ```
+
+## 注意事項
+
+- サービスが存在しない場合、エラーが表示されます
+- `--tasks`オプションを使用すると、追加のAPI呼び出しが発生するため、表示に時間がかかる場合があります
+- イベント履歴は新しいものから順に表示されます
+- JSON形式で出力する場合、すべての情報が含まれます

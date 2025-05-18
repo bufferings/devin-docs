@@ -3,125 +3,87 @@ layout: default
 title: wait
 parent: コマンドリファレンス
 grand_parent: ecspresso
-nav_order: 6
+nav_order: 7
 ---
 
 # wait
 
-`wait`コマンドは、サービスが安定するまで待機します。
+`wait`コマンドは、ECSサービスが安定状態になるまで待機します。デプロイ後にサービスが完全に起動するまで待ちたい場合に便利です。
 
 ## 基本的な使い方
 
-```bash
-ecspresso wait --config CONFIG_FILE
+```console
+$ ecspresso wait --config ecspresso.yml
 ```
 
 ## オプション
 
 | オプション | 説明 | デフォルト値 |
 |------------|------|-------------|
-| `--config` | 設定ファイルのパス | `ecspresso.yml` |
-| `--timeout` | タイムアウト時間 | 設定ファイルで指定されたタイムアウト |
-| `--service` | サービス名 | 設定ファイルで指定されたサービス |
-| `--cluster` | ECSクラスター名 | 設定ファイルで指定されたクラスター |
-| `--suspend-auto-scaling` | Auto Scalingを一時停止するかどうか | `false` |
-| `--resume-auto-scaling` | Auto Scalingを再開するかどうか | `false` |
-
-## 詳細
-
-`wait`コマンドは、以下の処理を行います：
-
-1. 指定されたサービスのステータスを定期的に確認
-2. サービスが安定状態（STEADY_STATE）になるまで待機
-3. タイムアウト時間を超えた場合はエラーを返す
-
-このコマンドは、デプロイ後にサービスが安定するまで待機するのに役立ちます。
-
-## 待機フロー
-
-```mermaid
-graph TD
-    A[ecspresso wait] --> B[設定ファイル読み込み]
-    B --> C[AWSからサービス情報を取得]
-    C --> D{サービスは安定しているか}
-    D -->|Yes| E[完了]
-    D -->|No| F[一定時間待機]
-    F --> G{タイムアウトしたか}
-    G -->|Yes| H[エラー]
-    G -->|No| C
-```
+| `--config FILE` | 設定ファイルのパス | `ecspresso.yml` |
+| `--timeout DURATION` | タイムアウト時間 | 設定ファイルの`timeout`値（デフォルト: `10m`） |
+| `--wait-until` | 待機条件（`stable`または`deployed`） | `stable` |
 
 ## 使用例
 
-### 基本的な使用例
+### 基本的な待機
 
-```bash
-ecspresso wait --config ecspresso.yml
+```console
+$ ecspresso wait --config ecspresso.yml
 ```
 
-### タイムアウトを指定する例
+### タイムアウト時間を指定して待機
 
-```bash
-ecspresso wait --config ecspresso.yml --timeout 5m
+```console
+$ ecspresso wait --config ecspresso.yml --timeout 5m
 ```
 
-### 特定のサービスを指定する例
+### デプロイメント完了まで待機
 
-```bash
-ecspresso wait --config ecspresso.yml --service myservice
+```console
+$ ecspresso wait --config ecspresso.yml --wait-until deployed
 ```
 
-### 特定のクラスターを指定する例
+## 待機条件
 
-```bash
-ecspresso wait --config ecspresso.yml --cluster mycluster
+`wait`コマンドは、以下の条件のいずれかが満たされるまで待機します：
+
+1. `--wait-until stable`（デフォルト）
+   - サービスのプライマリデプロイメントが安定状態になる
+   - 希望するタスク数と実行中のタスク数が一致する
+   - すべてのタスクが最新のタスク定義で実行されている
+
+2. `--wait-until deployed`
+   - デプロイメントが完了する（サービスが完全に安定していなくても）
+   - プライマリデプロイメントのデプロイメント状態が`COMPLETED`になる
+
+## 待機フロー
+
+`wait`コマンドの実行フローは以下の通りです：
+
+```mermaid
+graph TD
+    A[wait開始] --> B[設定ファイル読み込み]
+    B --> C[サービス情報取得]
+    C --> D{待機条件}
+    D -->|stable| E[安定状態まで待機]
+    D -->|deployed| F[デプロイメント完了まで待機]
+    E --> G{安定状態?}
+    F --> H{デプロイメント完了?}
+    G -->|No| I[一定時間待機]
+    H -->|No| I
+    I --> J{タイムアウト?}
+    J -->|No| C
+    J -->|Yes| K[タイムアウトエラー]
+    G -->|Yes| L[完了]
+    H -->|Yes| L
+    K --> M[終了]
+    L --> M
 ```
 
-### Auto Scalingを一時停止する例
+## 注意事項
 
-```bash
-ecspresso wait --config ecspresso.yml --suspend-auto-scaling
-```
-
-### Auto Scalingを再開する例
-
-```bash
-ecspresso wait --config ecspresso.yml --resume-auto-scaling
-```
-
-## サービスの安定状態
-
-ECSサービスの安定状態とは、以下の条件を満たす状態です：
-
-1. デプロイメントが完了している
-2. 実行中のタスク数が希望するタスク数と一致している
-3. 保留中のタスクがない
-4. すべてのタスクが最新のタスク定義を使用している
-
-サービスが安定状態になるまでの時間は、以下の要因によって異なります：
-
-1. タスクの起動時間
-2. コンテナのヘルスチェック
-3. デプロイメント設定（最小ヘルスパーセント、最大パーセント）
-4. サービスの規模（タスク数）
-
-## タイムアウト
-
-`wait`コマンドは、指定されたタイムアウト時間内にサービスが安定状態にならない場合、エラーを返します。タイムアウト時間は、`--timeout`オプションまたは設定ファイルで指定できます。
-
-設定ファイルでのタイムアウト指定例：
-```yaml
-region: ap-northeast-1
-cluster: default
-service: myservice
-task_definition: ecs-task-def.json
-service_definition: ecs-service-def.json
-timeout: 10m
-```
-
-## Auto Scaling
-
-`wait`コマンドは、Auto Scalingを一時停止または再開するオプションを提供しています。これは、デプロイ中にAuto Scalingによるタスク数の変更を防ぐのに役立ちます。
-
-- `--suspend-auto-scaling` - Auto Scalingを一時停止します
-- `--resume-auto-scaling` - Auto Scalingを再開します
+- サービスが存在しない場合、エラーが表示されます
+- タイムアウト時間を超えても条件が満たされない場合、エラーが表示されます
+- `--wait-until deployed`オプションは、CodeDeployを使用したBlue/Greenデプロイメントの場合に特に有用です
+- `wait`コマンドは、`deploy`コマンドの`--wait`オプションと同じ機能を提供しますが、別のコマンドとして実行できます

@@ -3,102 +3,109 @@ layout: default
 title: diff
 parent: コマンドリファレンス
 grand_parent: ecspresso
-nav_order: 4
+nav_order: 5
 ---
 
 # diff
 
-`diff`コマンドは、タスク定義、サービス定義と現在実行中のサービスとタスク定義の差分を表示します。
+`diff`コマンドは、現在のECS設定と新しい設定の差分を表示します。デプロイ前に変更内容を確認するのに役立ちます。
 
 ## 基本的な使い方
 
-```bash
-ecspresso diff --config CONFIG_FILE
+```console
+$ ecspresso diff --config ecspresso.yml
 ```
 
 ## オプション
 
 | オプション | 説明 | デフォルト値 |
 |------------|------|-------------|
-| `--config` | 設定ファイルのパス | `ecspresso.yml` |
-| `--task-definition` | タスク定義ファイルのパス | 設定ファイルで指定されたパス |
-| `--service-definition` | サービス定義ファイルのパス | 設定ファイルで指定されたパス |
-| `--unified` | 統合フォーマットで差分を表示するかどうか | `false` |
-| `--color` | 差分を色付きで表示するかどうか | `true` |
-| `--no-color` | 差分を色なしで表示するかどうか | `false` |
-| `--ignore-values` | 無視する値のパターン（正規表現） | - |
-| `--ignore-tags` | 無視するタグのパターン（正規表現） | - |
-
-## 詳細
-
-`diff`コマンドは、以下の差分を表示します：
-
-1. タスク定義ファイルと現在実行中のタスク定義の差分
-2. サービス定義ファイルと現在実行中のサービスの差分
-
-このコマンドは、デプロイ前に変更内容を確認するのに役立ちます。
-
-## 出力例
-
-```diff
---- /tmp/ecspresso/20230101-123456-current-task-definition.json
-+++ /tmp/ecspresso/20230101-123456-new-task-definition.json
-@@ -1,7 +1,7 @@
- {
-   "containerDefinitions": [
-     {
--      "image": "nginx:1.19",
-+      "image": "nginx:1.20",
-       "name": "nginx",
-       "essential": true
-     }
-```
+| `--config FILE` | 設定ファイルのパス | `ecspresso.yml` |
+| `--task-definition` | タスク定義の差分のみを表示 | `false` |
+| `--service-definition` | サービス定義の差分のみを表示 | `false` |
+| `--unified N` | 差分表示の前後のコンテキスト行数 | `3` |
+| `--color` | 差分表示に色を付ける | `true` |
+| `--no-color` | 差分表示に色を付けない | `false` |
 
 ## 使用例
 
-### 基本的な使用例
+### すべての定義ファイルの差分を表示
 
-```bash
-ecspresso diff --config ecspresso.yml
+```console
+$ ecspresso diff --config ecspresso.yml
 ```
 
-### 統合フォーマットで差分を表示する例
+### タスク定義の差分のみを表示
 
-```bash
-ecspresso diff --config ecspresso.yml --unified
+```console
+$ ecspresso diff --config ecspresso.yml --task-definition
 ```
 
-### 色なしで差分を表示する例
+### サービス定義の差分のみを表示
 
-```bash
-ecspresso diff --config ecspresso.yml --no-color
+```console
+$ ecspresso diff --config ecspresso.yml --service-definition
 ```
 
-### 特定の値を無視する例
+### コンテキスト行数を変更して差分を表示
 
-```bash
-ecspresso diff --config ecspresso.yml --ignore-values "createdAt|updatedAt"
+```console
+$ ecspresso diff --config ecspresso.yml --unified 5
 ```
 
-### 特定のタグを無視する例
+## 差分表示フロー
 
-```bash
-ecspresso diff --config ecspresso.yml --ignore-tags "ecspresso:ignore"
-```
-
-## ワークフロー
+`diff`コマンドの実行フローは以下の通りです：
 
 ```mermaid
 graph TD
-    A[ecspresso diff] --> B[設定ファイル読み込み]
-    B --> C[AWSから現在のサービス情報を取得]
-    B --> D[AWSから現在のタスク定義を取得]
-    B --> E[ローカルのタスク定義ファイル読み込み]
-    B --> F[ローカルのサービス定義ファイル読み込み]
-    C --> G[サービス定義の差分を計算]
-    D --> H[タスク定義の差分を計算]
-    E --> H
-    F --> G
-    G --> I[差分を表示]
+    A[diff開始] --> B[設定ファイル読み込み]
+    B --> C[現在のECS設定取得]
+    C --> D{差分表示対象}
+    D -->|すべて| E[タスク定義の差分計算]
+    D -->|--task-definition| E
+    D -->|すべて| F[サービス定義の差分計算]
+    D -->|--service-definition| F
+    E --> G[タスク定義の差分表示]
+    F --> H[サービス定義の差分表示]
+    G --> I[完了]
     H --> I
 ```
+
+## 差分表示の見方
+
+差分表示は、Unix `diff`コマンドの出力形式に似ています：
+
+- `+` で始まる行は、新しい設定で追加された行
+- `-` で始まる行は、現在の設定から削除される行
+- 変更がない行は、そのまま表示されます
+
+例：
+
+```diff
+ {
+   "family": "your-service",
+   "containerDefinitions": [
+     {
+       "name": "app",
+-      "image": "123456789012.dkr.ecr.ap-northeast-1.amazonaws.com/your-service:v1",
++      "image": "123456789012.dkr.ecr.ap-northeast-1.amazonaws.com/your-service:v2",
+       "essential": true,
+       "portMappings": [
+         {
+           "containerPort": 80,
+           "hostPort": 80,
+           "protocol": "tcp"
+         }
+       ]
+     }
+   ]
+ }
+```
+
+## 注意事項
+
+- `diff`コマンドは実際のデプロイを行わず、変更内容を表示するだけです
+- サービスが存在しない場合、すべての内容が新規追加として表示されます
+- 差分がない場合は、「No diff」というメッセージが表示されます
+- 大きな差分がある場合は、`--unified`オプションで表示するコンテキスト行数を調整すると見やすくなります

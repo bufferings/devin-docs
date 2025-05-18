@@ -8,25 +8,26 @@ nav_order: 1
 
 # CI/CDパイプラインとの統合
 
-ecspressoは、CI/CDパイプラインと簡単に統合できます。このページでは、一般的なCI/CDツールとecspressoを統合する方法について説明します。
+ecspressoは、CI/CDパイプラインと簡単に統合できます。このガイドでは、一般的なCI/CDツールでecspressoを使用する方法を説明します。
 
-## CI/CDパイプラインの概要
+## CI/CDパイプラインの基本構成
 
-CI/CD（継続的インテグレーション/継続的デリバリー）パイプラインは、コードの変更を自動的にテスト、ビルド、デプロイするプロセスです。ecspressoをCI/CDパイプラインに統合することで、ECSサービスのデプロイを自動化できます。
+ecspressoを使用したCI/CDパイプラインの基本的な構成は以下の通りです：
 
 ```mermaid
-graph LR
+graph TD
     A[コード変更] --> B[ビルド]
     B --> C[テスト]
     C --> D[コンテナイメージ作成]
-    D --> E[イメージをECRにプッシュ]
-    E --> F[ecspressoでデプロイ]
-    F --> G[デプロイ完了]
+    D --> E[コンテナレジストリへのプッシュ]
+    E --> F[タスク定義の更新]
+    F --> G[ecspressoによるデプロイ]
+    G --> H[デプロイ結果の通知]
 ```
 
-## GitHub Actions
+## GitHub Actions での使用例
 
-GitHub Actionsは、GitHubリポジトリでCI/CDワークフローを自動化するためのツールです。以下は、GitHub ActionsでecspressoをセットアップするためのYAMLファイルの例です。
+GitHub Actionsでecspressoを使用する例を示します：
 
 ```yaml
 name: Deploy to ECS
@@ -39,73 +40,99 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      
+      - uses: actions/checkout@v2
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ap-northeast-1
-      
+
       - name: Login to Amazon ECR
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
-      
+
       - name: Build, tag, and push image to Amazon ECR
         id: build-image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: myapp
+          ECR_REPOSITORY: your-repository
           IMAGE_TAG: ${{ github.sha }}
         run: |
           docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
-      
+
       - name: Install ecspresso
-        uses: kayac/ecspresso@v2
-        with:
-          version: v2.3.0
-      
-      - name: Deploy to ECS
+        run: |
+          curl -sL https://github.com/kayac/ecspresso/releases/latest/download/ecspresso-linux-amd64.zip > ecspresso.zip
+          unzip ecspresso.zip
+          sudo mv ecspresso /usr/local/bin/
+          ecspresso version
+
+      - name: Update task definition
         env:
-          IMAGE_TAG: ${{ github.sha }}
+          IMAGE: ${{ steps.build-image.outputs.image }}
+        run: |
+          sed -i "s|<IMAGE>|$IMAGE|g" ecs-task-def.json
+
+      - name: Deploy to ECS
         run: |
           ecspresso deploy --config ecspresso.yml
 ```
 
-## CircleCI
+## CircleCI での使用例
 
-CircleCIは、CI/CDパイプラインを自動化するためのプラットフォームです。以下は、CircleCIでecspressoをセットアップするためのYAMLファイルの例です。
+CircleCIでecspressoを使用する例を示します：
 
 ```yaml
 version: 2.1
 
-orbs:
-  aws-ecr: circleci/aws-ecr@6.15.3
-  aws-cli: circleci/aws-cli@2.0.3
-  ecspresso: fujiwara/ecspresso@2.0.4
-
 jobs:
   deploy:
     docker:
-      - image: cimg/base:2022.01
+      - image: cimg/base:2021.04
     steps:
       - checkout
       - setup_remote_docker:
           version: 20.10.7
-      - aws-cli/setup:
-          profile-name: default
-      - aws-ecr/build-and-push-image:
-          repo: myapp
-          tag: ${CIRCLE_SHA1}
-      - ecspresso/install:
-          version: v2.3.0
+      - run:
+          name: Install AWS CLI
+          command: |
+            curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+            unzip awscliv2.zip
+            sudo ./aws/install
+      - run:
+          name: Configure AWS credentials
+          command: |
+            aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
+            aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
+            aws configure set default.region ap-northeast-1
+      - run:
+          name: Login to Amazon ECR
+          command: |
+            aws ecr get-login-password --region ap-northeast-1 | docker login --username AWS --password-stdin $ECR_REGISTRY
+      - run:
+          name: Build and push Docker image
+          command: |
+            docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$CIRCLE_SHA1 .
+            docker push $ECR_REGISTRY/$ECR_REPOSITORY:$CIRCLE_SHA1
+      - run:
+          name: Install ecspresso
+          command: |
+            curl -sL https://github.com/kayac/ecspresso/releases/latest/download/ecspresso-linux-amd64.zip > ecspresso.zip
+            unzip ecspresso.zip
+            sudo mv ecspresso /usr/local/bin/
+            ecspresso version
+      - run:
+          name: Update task definition
+          command: |
+            sed -i "s|<IMAGE>|$ECR_REGISTRY/$ECR_REPOSITORY:$CIRCLE_SHA1|g" ecs-task-def.json
       - run:
           name: Deploy to ECS
           command: |
-            IMAGE_TAG=${CIRCLE_SHA1} ecspresso deploy --config ecspresso.yml
+            ecspresso deploy --config ecspresso.yml
 
 workflows:
   version: 2
@@ -117,203 +144,118 @@ workflows:
               only: main
 ```
 
-## AWS CodePipeline
+## AWS CodePipeline での使用例
 
-AWS CodePipelineは、AWSのCI/CDサービスです。以下は、AWS CodePipelineでecspressoを使用するためのbuildspec.ymlファイルの例です。
+AWS CodePipelineでecspressoを使用する例を示します：
 
 ```yaml
+# buildspec.yml
 version: 0.2
 
 phases:
   install:
     runtime-versions:
-      docker: 18
+      docker: 19
     commands:
-      - curl -sL -o /usr/local/bin/ecspresso https://github.com/kayac/ecspresso/releases/download/v2.3.0/ecspresso_2.3.0_linux_amd64.tar.gz
-      - tar -xzf /usr/local/bin/ecspresso -C /usr/local/bin/
-      - chmod +x /usr/local/bin/ecspresso
+      - curl -sL https://github.com/kayac/ecspresso/releases/latest/download/ecspresso-linux-amd64.zip > ecspresso.zip
+      - unzip ecspresso.zip
+      - mv ecspresso /usr/local/bin/
+      - ecspresso version
   pre_build:
     commands:
       - echo Logging in to Amazon ECR...
-      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
+      - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+      - IMAGE_TAG=${COMMIT_HASH:=latest}
   build:
     commands:
       - echo Build started on `date`
       - echo Building the Docker image...
-      - docker build -t $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/myapp:$CODEBUILD_RESOLVED_SOURCE_VERSION .
-      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/myapp:$CODEBUILD_RESOLVED_SOURCE_VERSION
+      - docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+      - docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
   post_build:
     commands:
       - echo Build completed on `date`
+      - echo Updating task definition...
+      - sed -i "s|<IMAGE>|$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG|g" ecs-task-def.json
       - echo Deploying to ECS...
-      - IMAGE_TAG=$CODEBUILD_RESOLVED_SOURCE_VERSION ecspresso deploy --config ecspresso.yml
+      - ecspresso deploy --config ecspresso.yml
+
+artifacts:
+  files:
+    - appspec.yml
+    - taskdef.json
 ```
 
-## GitLab CI/CD
+## 環境変数の管理
 
-GitLab CI/CDは、GitLabに組み込まれたCI/CDツールです。以下は、GitLab CI/CDでecspressoをセットアップするための.gitlab-ci.ymlファイルの例です。
+CI/CD環境でecspressoを使用する場合、環境変数の管理が重要です。以下の方法があります：
 
-```yaml
-stages:
-  - build
-  - deploy
+1. CI/CDツールのシークレット管理機能を使用
+   - GitHub ActionsのSecrets
+   - CircleCIのEnvironment Variables
+   - AWS CodeBuildのEnvironment Variables
 
-variables:
-  DOCKER_DRIVER: overlay2
-  DOCKER_TLS_CERTDIR: ""
+2. ecspressoの環境変数ファイルを使用
+   ```console
+   $ ecspresso deploy --config ecspresso.yml --envfile .env.production
+   ```
 
-build:
-  stage: build
-  image: docker:20.10.7
-  services:
-    - docker:20.10.7-dind
-  before_script:
-    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
-  script:
-    - docker build -t $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA .
-    - docker push $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA
-  only:
-    - main
+3. テンプレート関数を使用
+   ```json
+   {
+     "image": "{{ must_env `ECR_REPOSITORY` }}:{{ must_env `IMAGE_TAG` }}"
+   }
+   ```
 
-deploy:
-  stage: deploy
-  image: 
-    name: amazon/aws-cli:2.4.7
-    entrypoint: [""]
-  before_script:
-    - amazon-linux-extras install docker
-    - curl -sL -o ecspresso.tar.gz https://github.com/kayac/ecspresso/releases/download/v2.3.0/ecspresso_2.3.0_linux_amd64.tar.gz
-    - tar -xzf ecspresso.tar.gz
-    - mv ecspresso /usr/local/bin/
-    - chmod +x /usr/local/bin/ecspresso
-    - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
-  script:
-    - docker tag $CI_REGISTRY_IMAGE:$CI_COMMIT_SHA $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/myapp:$CI_COMMIT_SHA
-    - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/myapp:$CI_COMMIT_SHA
-    - IMAGE_TAG=$CI_COMMIT_SHA ecspresso deploy --config ecspresso.yml
-  only:
-    - main
-```
+## デプロイ戦略
 
-## Jenkins
+CI/CDパイプラインでecspressoを使用する場合、以下のデプロイ戦略があります：
 
-Jenkinsは、オープンソースの自動化サーバーです。以下は、JenkinsでecspressoをセットアップするためのJenkinsfileの例です。
+1. ローリングアップデート（デフォルト）
+   ```console
+   $ ecspresso deploy --config ecspresso.yml
+   ```
 
-```groovy
-pipeline {
-    agent {
-        docker {
-            image 'docker:20.10.7'
-            args '-v /var/run/docker.sock:/var/run/docker.sock'
-        }
-    }
-    environment {
-        AWS_ACCOUNT_ID = credentials('aws-account-id')
-        AWS_DEFAULT_REGION = 'ap-northeast-1'
-        ECR_REPOSITORY = 'myapp'
-        IMAGE_TAG = "${env.GIT_COMMIT}"
-    }
-    stages {
-        stage('Build') {
-            steps {
-                sh 'docker build -t ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${ECR_REPOSITORY}:${IMAGE_TAG} .'
-            }
-        }
-        stage('Push') {
-            steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY', credentialsId: 'aws-credentials']]) {
-                    sh 'aws ecr get-login-password --region ${AWS_DEFAULT_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com'
-                    sh 'docker push ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com/${ECR_REPOSITORY}:${IMAGE_TAG}'
-                }
-            }
-        }
-        stage('Deploy') {
-            steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY', credentialsId: 'aws-credentials']]) {
-                    sh 'curl -sL -o ecspresso.tar.gz https://github.com/kayac/ecspresso/releases/download/v2.3.0/ecspresso_2.3.0_linux_amd64.tar.gz'
-                    sh 'tar -xzf ecspresso.tar.gz'
-                    sh 'chmod +x ecspresso'
-                    sh 'IMAGE_TAG=${IMAGE_TAG} ./ecspresso deploy --config ecspresso.yml'
-                }
-            }
-        }
-    }
-}
-```
+2. Blue/Greenデプロイメント（CodeDeployを使用）
+   ```console
+   $ ecspresso deploy --config ecspresso.yml --rollback-events DEPLOYMENT_FAILURE
+   ```
 
-## ベストプラクティス
-
-### 1. 環境変数の使用
-
-環境変数を使用して、異なる環境（開発、ステージング、本番）で同じ設定ファイルを使用できます。
-
-```bash
-# 開発環境
-DEV=true CLUSTER=dev-cluster ecspresso deploy --config ecspresso.yml
-
-# 本番環境
-PROD=true CLUSTER=prod-cluster ecspresso deploy --config ecspresso.yml
-```
-
-### 2. 環境変数ファイルの使用
-
-複数の環境変数を設定する場合は、環境変数ファイルを使用できます。
-
-```bash
-# 開発環境
-ecspresso deploy --config ecspresso.yml --envfile=dev.env
-
-# 本番環境
-ecspresso deploy --config ecspresso.yml --envfile=prod.env
-```
-
-### 3. デプロイ前の検証
-
-デプロイ前に設定を検証するには、`verify`コマンドを使用します。
-
-```bash
-ecspresso verify --config ecspresso.yml
-```
-
-### 4. 差分の確認
-
-デプロイ前に差分を確認するには、`diff`コマンドを使用します。
-
-```bash
-ecspresso diff --config ecspresso.yml
-```
-
-### 5. 自動ロールバック
-
-デプロイ失敗時に自動的にロールバックするには、`--rollback-events`オプションを使用します。
-
-```bash
-ecspresso deploy --config ecspresso.yml --rollback-events DEPLOYMENT_FAILURE
-```
+3. カナリアデプロイメント
+   ```console
+   $ ecspresso deploy --config ecspresso.yml --tasks 1
+   # 動作確認後
+   $ ecspresso deploy --config ecspresso.yml --tasks 10
+   ```
 
 ## CI/CDパイプラインの例
 
-以下は、一般的なCI/CDパイプラインの例です。
+以下は、ecspressoを使用した完全なCI/CDパイプラインの例です：
 
 ```mermaid
-sequenceDiagram
-    participant Developer
-    participant Git
-    participant CI
-    participant ECR
-    participant Ecspresso
-    participant ECS
-
-    Developer->>Git: コードをプッシュ
-    Git->>CI: ワークフローをトリガー
-    CI->>CI: コードをビルド
-    CI->>CI: テストを実行
-    CI->>CI: コンテナイメージを作成
-    CI->>ECR: イメージをプッシュ
-    CI->>Ecspresso: ecspresso deployを実行
-    Ecspresso->>ECS: 新しいタスク定義を登録
-    Ecspresso->>ECS: サービスを更新
-    Ecspresso->>ECS: サービスが安定するまで待機
-    Ecspresso-->>CI: デプロイ完了
-    CI-->>Developer: デプロイ成功通知
+graph TD
+    A[開発者がコードをプッシュ] --> B[CI/CDパイプラインが起動]
+    B --> C[コードのビルドとテスト]
+    C --> D[コンテナイメージのビルド]
+    D --> E[コンテナイメージのタグ付け]
+    E --> F[ECRへのプッシュ]
+    F --> G[タスク定義の更新]
+    G --> H[ecspresso diffで変更確認]
+    H --> I[ecspresso deployでデプロイ]
+    I --> J[ecspresso waitでデプロイ完了を待機]
+    J --> K[デプロイ結果の通知]
+    K --> L{デプロイ成功?}
+    L -->|Yes| M[完了]
+    L -->|No| N[自動ロールバック]
+    N --> O[障害通知]
+    O --> P[開発者が修正]
+    P --> A
 ```
+
+## 注意事項
+
+- CI/CD環境では、`--no-color`オプションを使用すると、ログが読みやすくなります
+- 長時間実行されるデプロイの場合、タイムアウト設定を適切に行ってください
+- デプロイ失敗時の自動ロールバックを設定することをお勧めします
+- 本番環境へのデプロイ前に、ステージング環境でテストすることをお勧めします
