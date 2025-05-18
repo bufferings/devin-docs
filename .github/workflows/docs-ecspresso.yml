@@ -11,8 +11,9 @@ jobs:
         run: |
           SLACK_TEXT="<@U08PYJ5B9LK> "
 
-          SLACK_TEXT+="bufferings/devin-docs リポジトリ main ブランチの "
-          SLACK_TEXT+=".instructions/docs-ecspresso.md に従ってPRを作成してください。"
+          SLACK_TEXT+="自動生成された初期計画は利用しないでください。"
+          SLACK_TEXT+="bufferings/devin-docsの.instructions/docs-ecspresso/step1.mdに従って作業を実施してください。"
+          SLACK_TEXT+="他のファイルは指示があるまで読み込まないでください。"
 
           payload="{\"text\":\"${SLACK_TEXT//\"/\\\"}\"}"
 
