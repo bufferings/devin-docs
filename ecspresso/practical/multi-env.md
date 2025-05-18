@@ -46,17 +46,17 @@ ecs-task-def.jsonで環境変数を活用します。
 
 ```json
 {
-  "family": "{{ must_env `SERVICE_NAME` }}",
-  "cpu": "{{ env `CPU` `256` }}",
-  "memory": "{{ env `MEMORY` `512` }}",
+  "family": "{% raw %}{{ must_env `SERVICE_NAME` }}{% endraw %}",
+  "cpu": "{% raw %}{{ env `CPU` `256` }}{% endraw %}",
+  "memory": "{% raw %}{{ env `MEMORY` `512` }}{% endraw %}",
   "containerDefinitions": [
     {
-      "name": "{{ must_env `SERVICE_NAME` }}",
-      "image": "{{ must_env `ECR_REPOSITORY` }}:{{ must_env `IMAGE_TAG` }}",
+      "name": "{% raw %}{{ must_env `SERVICE_NAME` }}{% endraw %}",
+      "image": "{% raw %}{{ must_env `ECR_REPOSITORY` }}:{{ must_env `IMAGE_TAG` }}{% endraw %}",
       "environment": [
         {
           "name": "ENV",
-          "value": "{{ must_env `ENV` }}"
+          "value": "{% raw %}{{ must_env `ENV` }}{% endraw %}"
         }
       ]
     }
@@ -110,7 +110,7 @@ ecspressoは様々なプラグインをサポートしており、複数環境�
       "environment": [
         {
           "name": "DATABASE_URL",
-          "value": "{{ ssm `/${ENV}/database/url` }}"
+          "value": "{% raw %}{{ ssm `/${ENV}/database/url` }}{% endraw %}"
         }
       ]
     }
@@ -127,7 +127,7 @@ ecspressoは様々なプラグインをサポートしており、複数環境�
       "secrets": [
         {
           "name": "API_KEY",
-          "valueFrom": "{{ secretsmanager `${ENV}/api-key` }}"
+          "valueFrom": "{% raw %}{{ secretsmanager `${ENV}/api-key` }}{% endraw %}"
         }
       ]
     }
@@ -144,7 +144,7 @@ ecspressoは様々なプラグインをサポートしており、複数環境�
       "environment": [
         {
           "name": "VPC_ID",
-          "value": "{{ cloudformation `${ENV}-VPC` `VpcId` }}"
+          "value": "{% raw %}{{ cloudformation `${ENV}-VPC` `VpcId` }}{% endraw %}"
         }
       ]
     }
