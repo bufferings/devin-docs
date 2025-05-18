@@ -1,75 +1,76 @@
 ---
 layout: default
 title: refresh
+nav_order: 8
 parent: コマンドリファレンス
 grand_parent: ecspresso
-nav_order: 3
 ---
 
 # refresh
 
-`refresh`コマンドは、タスク定義を更新せずにECSサービスを更新します。このコマンドは、`deploy --skip-task-definition --force-new-deployment --no-update-service`と同等です。
+`refresh`コマンドは、ECSサービスを更新するために使用します。このコマンドは、`deploy --skip-task-definition --force-new-deployment --no-update-service`と同等の機能を持ちます。
 
-## 基本的な使い方
+## 構文
 
-```console
-$ ecspresso refresh --config ecspresso.yml
+```
+ecspresso refresh [オプション]
 ```
 
 ## オプション
 
-|| オプション | 説明 | デフォルト値 |
+| オプション | 説明 | デフォルト値 |
 |------------|------|-------------|
-|| `--dry-run` | 実際に更新せずに、実行される操作を表示します | `false` |
-|| `--wait` | サービスが安定するまで待機します | `true` |
+| `--dry-run` | 実際の変更を行わずに実行内容を表示 | `false` |
+| `--wait/--no-wait` | サービスが安定するまで待機するかどうか | `true` |
+| `--wait-until` | どの状態まで待機するか（stable/deployed） | `stable` |
 
 ## 使用例
 
-### サービスを更新
+### 基本的な使用方法
 
-```console
-$ ecspresso refresh --config ecspresso.yml
+```bash
+ecspresso refresh
 ```
 
-### ドライランモード
+### ドライランモードでの実行
 
-```console
-$ ecspresso refresh --config ecspresso.yml --dry-run
+```bash
+ecspresso refresh --dry-run
 ```
 
-### 待機なしでサービスを更新
+### 待機せずに更新
 
-```console
-$ ecspresso refresh --config ecspresso.yml --no-wait
+```bash
+ecspresso refresh --no-wait
 ```
 
-## 更新フロー
+## リフレッシュプロセス
+
+`refresh`コマンドは、新しいタスク定義を登録せず、サービス定義も更新せずに、強制的に新しいデプロイメントを作成します。これは、コンテナインスタンスの問題やその他の理由でタスクを再起動したい場合に役立ちます。
 
 ```mermaid
-graph TD
-    A[refresh開始] --> B[サービス情報取得]
-    B --> C{dry-run?}
-    C -->|Yes| D[更新操作表示]
-    C -->|No| E[タスク定義更新をスキップ]
-    E --> F[強制的に新しいデプロイメントを作成]
-    F --> G[サービス更新をスキップ]
-    G --> H{wait?}
-    H -->|Yes| I[サービス安定まで待機]
-    H -->|No| J[完了]
-    I --> J
-    D --> K[dry-run完了]
+sequenceDiagram
+    participant User
+    participant Ecspresso
+    participant ECS
+    
+    User->>Ecspresso: refresh
+    Ecspresso->>ECS: UpdateService (forceNewDeployment=true)
+    ECS-->>Ecspresso: サービスを更新
+    opt wait=true
+        Ecspresso->>ECS: DescribeServices（安定するまで待機）
+        ECS-->>Ecspresso: サービスのステータス
+    end
+    Ecspresso-->>User: 更新完了
 ```
 
 ## ユースケース
 
-`refresh`コマンドは以下のような場合に役立ちます：
+- コンテナインスタンスの問題によりタスクを再起動したい場合
+- 同じタスク定義を使用して新しいデプロイメントを強制したい場合
+- サービスの設定を変更せずにタスクを再配置したい場合
 
-1. 同じタスク定義を使用しているが、すべてのタスクを再起動したい場合
-2. コンテナインスタンスの問題を解決するためにタスクを再配置したい場合
-3. サービスの設定は変更せず、タスクのみを再デプロイしたい場合
+## 関連コマンド
 
-## 注意事項
-
-- このコマンドは新しいタスク定義を登録せず、現在のタスク定義を使用します
-- サービス定義の更新も行われないため、サービスの設定は変更されません
-- `--force-new-deployment`フラグが内部的に使用され、新しいデプロイメントが強制的に作成されます
+- [deploy](./deploy.html) - サービスをデプロイ
+- [scale](./scale.html) - サービスをスケール（タスク数を変更）

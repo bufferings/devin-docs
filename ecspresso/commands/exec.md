@@ -1,109 +1,113 @@
 ---
 layout: default
 title: exec
+nav_order: 6
 parent: コマンドリファレンス
 grand_parent: ecspresso
-nav_order: 8
 ---
 
 # exec
 
-`exec`コマンドは、実行中のECSタスクでコマンドを実行します。コンテナ内でデバッグやメンテナンス作業を行うのに便利です。
+`exec`コマンドは、実行中のECSタスク上でコマンドを実行するために使用します。これは、デバッグやメンテナンス作業に役立ちます。
 
-## 基本的な使い方
+## 構文
 
-```console
-$ ecspresso exec --config ecspresso.yml --command "ls -la" --container app
+```
+ecspresso exec [オプション]
 ```
 
 ## オプション
 
 | オプション | 説明 | デフォルト値 |
 |------------|------|-------------|
-| `--config FILE` | 設定ファイルのパス | `ecspresso.yml` |
-| `--command COMMAND` | 実行するコマンド | - |
-| `--container NAME` | コマンドを実行するコンテナ名 | タスク定義の最初のコンテナ |
-| `--task-id TASK_ID` | コマンドを実行するタスクID | - |
-| `--interactive` | 対話モードで実行 | `false` |
-| `--latest` | 最新のタスクを選択 | `false` |
-| `--select` | タスクを選択するプロンプトを表示 | `false` |
+| `--id` | タスクID | （自動選択） |
+| `--command` | 実行するコマンド | `/bin/bash` |
+| `--container` | コマンドを実行するコンテナ名 | （最初のコンテナ） |
+| `--interactive/--no-interactive` | 対話モードを有効/無効にする | `true` |
+| `--tty/--no-tty` | TTYを割り当てるかどうか | `true` |
+| `--running-only/--no-running-only` | 実行中のタスクのみを対象にするかどうか | `true` |
+| `--filter` | タスクをフィルタリングするための式 | `` |
 
 ## 使用例
 
-### 特定のコマンドを実行
+### 基本的な使用方法（対話的シェルを起動）
 
-```console
-$ ecspresso exec --config ecspresso.yml --command "ls -la" --container app
+```bash
+ecspresso exec
 ```
 
-### 対話モードでシェルを起動
+### 特定のタスクでコマンドを実行
 
-```console
-$ ecspresso exec --config ecspresso.yml --command "/bin/bash" --container app --interactive
+```bash
+ecspresso exec --id 12345678-1234-1234-1234-123456789012
 ```
 
-### 最新のタスクでコマンドを実行
+### 特定のコンテナでコマンドを実行
 
-```console
-$ ecspresso exec --config ecspresso.yml --command "ps aux" --container app --latest
+```bash
+ecspresso exec --container app --command "ls -la"
 ```
 
-### タスクを選択してコマンドを実行
+### 非対話モードでコマンドを実行
 
-```console
-$ ecspresso exec --config ecspresso.yml --command "env" --container app --select
+```bash
+ecspresso exec --no-interactive --command "cat /var/log/app.log"
 ```
 
-### 特定のタスクIDでコマンドを実行
+## 実行プロセス
 
-```console
-$ ecspresso exec --config ecspresso.yml --command "cat /etc/hosts" --container app --task-id arn:aws:ecs:ap-northeast-1:123456789012:task/your-cluster/1234567890abcdef0
-```
-
-## 実行フロー
-
-`exec`コマンドの実行フローは以下の通りです：
+`exec`コマンドは、AWS ECS ExecuteCommandAPIを使用してタスク上でコマンドを実行します。このAPIを使用するには、タスク定義とクラスターでECS Execが有効になっている必要があります。
 
 ```mermaid
-graph TD
-    A[exec開始] --> B[設定ファイル読み込み]
-    B --> C{タスクID指定?}
-    C -->|Yes| D[指定されたタスクを使用]
-    C -->|No| E{--latest指定?}
-    E -->|Yes| F[最新のタスクを取得]
-    E -->|No| G{--select指定?}
-    G -->|Yes| H[タスク一覧を表示して選択]
-    G -->|No| I[実行中のタスクを1つ選択]
-    D --> J[コンテナ名の確認]
-    F --> J
-    H --> J
-    I --> J
-    J --> K[ECS ExecuteCommandを実行]
-    K --> L{--interactive指定?}
-    L -->|Yes| M[対話モードで実行]
-    L -->|No| N[非対話モードで実行]
-    M --> O[完了]
-    N --> O
+sequenceDiagram
+    participant User
+    participant Ecspresso
+    participant ECS
+    participant Container
+    
+    User->>Ecspresso: exec
+    Ecspresso->>ECS: ListTasks
+    ECS-->>Ecspresso: タスクのリスト
+    Ecspresso->>User: タスクの選択（複数ある場合）
+    User->>Ecspresso: タスクを選択
+    Ecspresso->>ECS: ExecuteCommand
+    ECS->>Container: コマンドを実行
+    Container-->>ECS: 出力
+    ECS-->>Ecspresso: 出力
+    Ecspresso-->>User: 出力を表示
 ```
 
-## 前提条件
+## ECS Execの有効化
 
-`exec`コマンドを使用するには、以下の前提条件があります：
+`exec`コマンドを使用するには、タスク定義とクラスターでECS Execが有効になっている必要があります。
 
-1. ECS ExecuteCommandが有効になっていること
-   - タスク定義で`enableExecuteCommand: true`が設定されていること
-   - ECSクラスターでExecuteCommandが有効になっていること
+タスク定義での設定例：
 
-2. 適切なIAM権限があること
-   - `ecs:ExecuteCommand`アクション
-   - SSMセッションの管理に必要な権限
+```json
+{
+  "containerDefinitions": [
+    {
+      "name": "app",
+      "image": "myapp:latest",
+      "essential": true,
+      "linuxParameters": {
+        "initProcessEnabled": true
+      }
+    }
+  ],
+  "executionRoleArn": "arn:aws:iam::123456789012:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::123456789012:role/ecsTaskRole",
+  "enableExecuteCommand": true
+}
+```
 
-3. AWS CLIまたはSession Managerプラグインがインストールされていること
+クラスターでの設定例：
 
-## 注意事項
+```bash
+aws ecs update-cluster-settings --cluster your-cluster --settings name=containerInsights,value=enabled
+```
 
-- `exec`コマンドは、AWS ECS ExecuteCommand機能を使用しています
-- Fargate、EC2の両方の起動タイプで使用できます
-- コンテナ内でコマンドを実行するため、コンテナにコマンドがインストールされている必要があります
-- 対話モード（`--interactive`）では、ターミナルが必要です
-- セキュリティ上の理由から、ExecuteCommandの使用はAWS CloudTrailでログに記録されます
+## 関連コマンド
+
+- [run](./run.html) - タスクを実行
+- [tasks](./tasks.html) - サービス内またはタスク定義ファミリー内のタスクを一覧表示

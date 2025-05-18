@@ -1,92 +1,86 @@
 ---
 layout: default
 title: verify
+nav_order: 17
 parent: コマンドリファレンス
 grand_parent: ecspresso
-nav_order: 4
 ---
 
 # verify
 
-`verify`コマンドは、タスク定義とサービス定義の構文を検証します。デプロイ前に設定ファイルが正しいかどうかを確認するのに役立ちます。
+`verify`コマンドは、設定内のリソースを検証するために使用します。デプロイ前に設定の問題を検出するのに役立ちます。
 
-## 基本的な使い方
+## 構文
 
-```console
-$ ecspresso verify --config ecspresso.yml
+```
+ecspresso verify [オプション]
 ```
 
 ## オプション
 
 | オプション | 説明 | デフォルト値 |
 |------------|------|-------------|
-| `--config FILE` | 設定ファイルのパス | `ecspresso.yml` |
-| `--task-definition` | タスク定義のみを検証 | `false` |
-| `--service-definition` | サービス定義のみを検証 | `false` |
+| `--save-task-definition` | 検証後にタスク定義を保存するファイルパス | `` |
+| `--save-service-definition` | 検証後にサービス定義を保存するファイルパス | `` |
+| `--skip-validation` | タスク定義の検証をスキップ | `false` |
 
 ## 使用例
 
-### すべての定義ファイルを検証
+### 基本的な使用方法
 
-```console
-$ ecspresso verify --config ecspresso.yml
+```bash
+ecspresso verify
 ```
 
-### タスク定義のみを検証
+### 検証後にタスク定義を保存
 
-```console
-$ ecspresso verify --config ecspresso.yml --task-definition
+```bash
+ecspresso verify --save-task-definition verified-task-def.json
 ```
 
-### サービス定義のみを検証
+### 検証後にサービス定義を保存
 
-```console
-$ ecspresso verify --config ecspresso.yml --service-definition
+```bash
+ecspresso verify --save-service-definition verified-service-def.json
 ```
 
-## 検証フロー
+## 検証プロセス
 
-`verify`コマンドの実行フローは以下の通りです：
+`verify`コマンドは、以下の項目を検証します：
+
+1. 設定ファイル（ecspresso.yml）の構文
+2. タスク定義の構文と有効性
+3. サービス定義の構文と有効性
+4. 参照されているリソース（IAMロール、セキュリティグループなど）の存在
 
 ```mermaid
-graph TD
-    A[verify開始] --> B[設定ファイル読み込み]
-    B --> C{検証対象}
-    C -->|すべて| D[タスク定義レンダリング]
-    C -->|--task-definition| D
-    C -->|すべて| E[サービス定義レンダリング]
-    C -->|--service-definition| E
-    D --> F[タスク定義の構文検証]
-    E --> G[サービス定義の構文検証]
-    F --> H{検証結果}
-    G --> H
-    H -->|成功| I[成功メッセージ表示]
-    H -->|失敗| J[エラーメッセージ表示]
-    I --> K[完了]
-    J --> K
+flowchart TD
+    A[開始] --> B[設定ファイルの検証]
+    B --> C[タスク定義の検証]
+    C --> D[サービス定義の検証]
+    D --> E[リソースの存在確認]
+    E --> F{問題あり?}
+    F -->|Yes| G[エラーを表示]
+    F -->|No| H[検証成功]
+    G --> I[終了]
+    H --> I
 ```
 
-## 検証内容
+## 検証エラーの例
 
-`verify`コマンドは以下の検証を行います：
-
-1. タスク定義の検証
-   - 必須フィールドの存在確認
-   - フィールドの型チェック
-   - コンテナ定義の検証
-   - ボリューム定義の検証
-   - タスクロール、実行ロールの検証
-
-2. サービス定義の検証
-   - 必須フィールドの存在確認
-   - フィールドの型チェック
-   - ネットワーク設定の検証
-   - ロードバランサー設定の検証
-   - デプロイメント設定の検証
+```
+ERROR: task definition validation failed: InvalidParameterException: The container app does not have any essential containers
+ERROR: service definition validation failed: InvalidParameterException: The security group 'sg-12345678' does not exist
+```
 
 ## 注意事項
 
-- `verify`コマンドは実際のデプロイを行わず、設定ファイルの構文のみを検証します
-- テンプレート変数や関数が正しく評価されない場合、エラーが表示されます
-- 環境変数が見つからない場合、`env`関数は空文字列を返しますが、`must_env`関数はエラーを発生させます
-- 検証に成功しても、AWSのサービス制限やIAM権限の問題でデプロイが失敗する可能性があります
+- `verify`コマンドは実際の変更を行わず、設定の検証のみを行います。
+- デプロイ前に`verify`コマンドを実行して、設定の問題を事前に検出することをお勧めします。
+- CI/CDパイプラインに`verify`コマンドを組み込むことで、問題のある設定がデプロイされるのを防ぐことができます。
+
+## 関連コマンド
+
+- [deploy](./deploy.html) - サービスをデプロイ
+- [diff](./diff.html) - タスク定義、サービス定義と実行中のサービス間の差分を表示
+- [render](./render.html) - 設定、サービス定義、またはタスク定義ファイルをSTDOUTに出力

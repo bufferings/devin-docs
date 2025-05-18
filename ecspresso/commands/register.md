@@ -1,68 +1,74 @@
 ---
 layout: default
 title: register
+nav_order: 9
 parent: コマンドリファレンス
 grand_parent: ecspresso
-nav_order: 14
 ---
 
 # register
 
-`register`コマンドは、新しいタスク定義を登録するために使用します。既存のタスク定義を更新したり、新しいバージョンを登録したりできます。
+`register`コマンドは、ECSタスク定義を登録するために使用します。
 
-## 基本的な使い方
+## 構文
 
-```console
-$ ecspresso register --config ecspresso.yml
+```
+ecspresso register [オプション]
 ```
 
 ## オプション
 
-|| オプション | 説明 | デフォルト値 |
+| オプション | 説明 | デフォルト値 |
 |------------|------|-------------|
-|| `--dry-run` | 実際に登録せずに、登録されるタスク定義を表示します | `false` |
-|| `--output` | 登録されたタスク定義をJSON形式で出力します | `false` |
+| `--dry-run` | 実際の変更を行わずに実行内容を表示 | `false` |
+| `--output` | 登録されたタスク定義ARNの出力先ファイル | `` |
+| `--skip-validation` | タスク定義の検証をスキップ | `false` |
 
 ## 使用例
 
-### 新しいタスク定義を登録
+### 基本的な使用方法
 
-```console
-$ ecspresso register --config ecspresso.yml
+```bash
+ecspresso register
 ```
 
-### ドライランモード
+### ドライランモードでの実行
 
-```console
-$ ecspresso register --config ecspresso.yml --dry-run
+```bash
+ecspresso register --dry-run
 ```
 
-### 登録されたタスク定義をJSONで出力
+### 登録されたタスク定義ARNをファイルに出力
 
-```console
-$ ecspresso register --config ecspresso.yml --output
+```bash
+ecspresso register --output task-definition-arn.txt
 ```
 
-## 登録フロー
+## 登録プロセス
+
+`register`コマンドは、設定ファイルで指定されたタスク定義ファイルを読み込み、ECSにタスク定義を登録します。
 
 ```mermaid
-graph TD
-    A[register開始] --> B[タスク定義ファイル読み込み]
-    B --> C[テンプレート関数を評価]
-    C --> D{dry-run?}
-    D -->|Yes| E[タスク定義表示]
-    D -->|No| F[タスク定義を登録]
-    F --> G{output?}
-    G -->|Yes| H[JSON形式で出力]
-    G -->|No| I[ARNのみ出力]
-    E --> J[dry-run完了]
-    H --> K[登録完了]
-    I --> K
+sequenceDiagram
+    participant User
+    participant Ecspresso
+    participant ECS
+    
+    User->>Ecspresso: register
+    Ecspresso->>Ecspresso: タスク定義ファイルを読み込み
+    Ecspresso->>ECS: RegisterTaskDefinition
+    ECS-->>Ecspresso: タスク定義ARN
+    Ecspresso-->>User: 登録完了
 ```
 
 ## 注意事項
 
-- タスク定義ファイル（デフォルト: `ecs-task-def.json`）の内容に基づいて新しいタスク定義が登録されます
-- タスク定義ファイル内でテンプレート関数（環境変数や外部値の参照など）を使用できます
-- `--output`オプションを使用すると、登録されたタスク定義の完全なJSON表現を確認できます
-- 登録されたタスク定義は、`deploy`コマンドを実行するまでサービスには適用されません
+- タスク定義を登録しても、実行中のサービスは自動的に更新されません。サービスを更新するには、`deploy`コマンドを使用する必要があります。
+- `--output`オプションを使用すると、登録されたタスク定義ARNをファイルに出力できます。これは、CI/CDパイプラインでの使用に便利です。
+- `--skip-validation`オプションを使用すると、タスク定義の検証をスキップできますが、通常は推奨されません。
+
+## 関連コマンド
+
+- [deploy](./deploy.html) - サービスをデプロイ
+- [deregister](./deregister.html) - タスク定義を登録解除
+- [revisions](./revisions.html) - タスク定義のリビジョンを表示

@@ -1,112 +1,108 @@
 ---
 layout: default
 title: run
+nav_order: 13
 parent: コマンドリファレンス
 grand_parent: ecspresso
-nav_order: 9
 ---
 
 # run
 
-`run`コマンドは、ECSで一時的なタスクを実行します。バッチ処理やメンテナンス作業など、一時的な処理を行うのに便利です。
+`run`コマンドは、ECSタスクを一時的に実行するために使用します。
 
-## 基本的な使い方
+## 構文
 
-```console
-$ ecspresso run --config ecspresso.yml --task-definition ecs-task-def.json
+```
+ecspresso run [オプション]
 ```
 
 ## オプション
 
 | オプション | 説明 | デフォルト値 |
 |------------|------|-------------|
-| `--config FILE` | 設定ファイルのパス | `ecspresso.yml` |
-| `--task-definition FILE` | タスク定義ファイルのパス | 設定ファイルの`task_definition`値 |
-| `--revision N` | 使用するタスク定義のリビジョン | `0` (最新) |
-| `--count N` | 実行するタスクの数 | `1` |
-| `--launch-type TYPE` | 起動タイプ（`EC2`または`FARGATE`） | タスク定義から自動判定 |
-| `--cluster CLUSTER` | ECSクラスター名 | 設定ファイルの`cluster`値 |
-| `--network-configuration JSON` | ネットワーク設定（JSON形式） | - |
-| `--overrides JSON` | タスク定義のオーバーライド（JSON形式） | - |
-| `--container-overrides JSON` | コンテナ定義のオーバーライド（JSON形式） | - |
+| `--dry-run` | 実際の変更を行わずに実行内容を表示 | `false` |
+| `--count` | 実行するタスクの数 | `1` |
+| `--group` | タスクグループ名 | `` |
+| `--container-instances` | タスクを実行するコンテナインスタンスのARN（カンマ区切り） | `` |
+| `--overrides` | タスク定義のオーバーライド（JSON形式） | `` |
 | `--skip-task-definition` | 新しいタスク定義の登録をスキップ | `false` |
-| `--wait` | タスクが完了するまで待機 | `false` |
-| `--latest-task-definition` | 最新のタスク定義を使用 | `false` |
-| `--platform-version VERSION` | Fargateのプラットフォームバージョン | `LATEST` |
-| `--capacity-provider-strategy JSON` | キャパシティプロバイダー戦略（JSON形式） | - |
-| `--group NAME` | タスクグループ名 | - |
-| `--propagate-tags` | タグの伝播（`TASK_DEFINITION`または`SERVICE`） | - |
-| `--tags JSON` | タスクに付けるタグ（JSON形式） | - |
-| `--enable-execute-command` | ExecuteCommandを有効にする | `false` |
-| `--dry-run` | 実際にタスクを実行せずに、実行される操作を表示 | `false` |
+| `--revision` | `--skip-task-definition`指定時に使用するタスク定義のリビジョン | `0` |
+| `--launch-type` | 起動タイプ（EC2/FARGATE） | （設定ファイルの値） |
+| `--network-configuration` | ネットワーク設定（JSON形式） | （設定ファイルの値） |
+| `--platform-version` | プラットフォームバージョン（FARGATE起動タイプの場合） | （設定ファイルの値） |
+| `--capacity-provider-strategy` | キャパシティプロバイダー戦略（JSON形式） | （設定ファイルの値） |
+| `--started-by` | タスクの開始者 | `ecspresso` |
+| `--wait/--no-wait` | タスクが完了するまで待機するかどうか | `false` |
+| `--latest-task-definition` | 新しいタスク定義を登録せずに最新のタスク定義でタスクを実行 | `false` |
 
 ## 使用例
 
-### 基本的なタスク実行
+### 基本的な使用方法
 
-```console
-$ ecspresso run --config ecspresso.yml --task-definition ecs-task-def.json
-```
-
-### 複数のタスクを実行
-
-```console
-$ ecspresso run --config ecspresso.yml --task-definition ecs-task-def.json --count 3
+```bash
+ecspresso run
 ```
 
 ### コマンドをオーバーライドして実行
 
-```console
-$ ecspresso run --config ecspresso.yml --task-definition ecs-task-def.json --container-overrides '{"containerOverrides":[{"name":"app","command":["echo","hello"]}]}'
+```bash
+ecspresso run --overrides '{"containerOverrides":[{"name":"app","command":["echo", "hello world"]}]}'
 ```
 
-### 環境変数をオーバーライドして実行
+### 複数のタスクを実行
 
-```console
-$ ecspresso run --config ecspresso.yml --task-definition ecs-task-def.json --container-overrides '{"containerOverrides":[{"name":"app","environment":[{"name":"DEBUG","value":"true"}]}]}'
+```bash
+ecspresso run --count 3
 ```
 
 ### タスクが完了するまで待機
 
-```console
-$ ecspresso run --config ecspresso.yml --task-definition ecs-task-def.json --wait
+```bash
+ecspresso run --wait
 ```
 
-### ドライランモード
+### 特定のコンテナインスタンスでタスクを実行
 
-```console
-$ ecspresso run --config ecspresso.yml --task-definition ecs-task-def.json --dry-run
+```bash
+ecspresso run --container-instances arn:aws:ecs:ap-northeast-1:123456789012:container-instance/12345678-1234-1234-1234-123456789012
 ```
 
-## タスク実行フロー
+## タスク実行プロセス
 
-`run`コマンドの実行フローは以下の通りです：
+`run`コマンドは、以下の手順を実行します：
+
+1. タスク定義を登録（`--skip-task-definition`が指定されていない場合）
+2. タスクを実行
+3. オプションでタスクが完了するまで待機
 
 ```mermaid
-graph TD
-    A[run開始] --> B[設定ファイル読み込み]
-    B --> C{--skip-task-definition?}
-    C -->|Yes| D[既存のタスク定義を使用]
-    C -->|No| E[新しいタスク定義を登録]
-    D --> F[RunTaskパラメータ準備]
-    E --> F
-    F --> G{--dry-run?}
-    G -->|Yes| H[パラメータ表示]
-    G -->|No| I[RunTask実行]
-    H --> J[完了]
-    I --> K{--wait?}
-    K -->|Yes| L[タスク完了まで待機]
-    K -->|No| M[タスクARN表示]
-    L --> N[タスク結果表示]
-    M --> J
-    N --> J
+sequenceDiagram
+    participant User
+    participant Ecspresso
+    participant ECS
+    
+    User->>Ecspresso: run
+    opt skip-task-definition=false
+        Ecspresso->>ECS: RegisterTaskDefinition
+        ECS-->>Ecspresso: タスク定義ARN
+    end
+    Ecspresso->>ECS: RunTask
+    ECS-->>Ecspresso: タスクARN
+    opt wait=true
+        Ecspresso->>ECS: DescribeTasks（完了するまで待機）
+        ECS-->>Ecspresso: タスクのステータス
+    end
+    Ecspresso-->>User: 実行完了
 ```
 
-## 注意事項
+## ユースケース
 
-- `run`コマンドは、サービスではなく一時的なタスクを実行します
-- タスク定義ファイルを指定しない場合、設定ファイルの`task_definition`値が使用されます
-- `--overrides`または`--container-overrides`オプションを使用して、タスク定義の一部をオーバーライドできます
-- `--wait`オプションを指定すると、すべてのタスクが完了するまでコマンドはブロックされます
-- Fargateを使用する場合、`--network-configuration`オプションが必要です
-- `--enable-execute-command`オプションを指定すると、`exec`コマンドでタスクに接続できます
+- バッチ処理の実行
+- データベースマイグレーションの実行
+- メンテナンスタスクの実行
+- デバッグ目的でのコンテナの起動
+
+## 関連コマンド
+
+- [exec](./exec.html) - タスク上でコマンドを実行
+- [tasks](./tasks.html) - サービス内またはタスク定義ファミリー内のタスクを一覧表示

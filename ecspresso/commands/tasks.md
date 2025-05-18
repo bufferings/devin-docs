@@ -1,98 +1,94 @@
 ---
 layout: default
 title: tasks
+nav_order: 16
 parent: コマンドリファレンス
 grand_parent: ecspresso
-nav_order: 9
 ---
 
 # tasks
 
-`tasks`コマンドは、サービスに関連するタスクまたは同じファミリーを持つタスクの一覧を表示するために使用します。特定のタスクの詳細情報も表示できます。
+`tasks`コマンドは、サービス内またはタスク定義ファミリー内のタスクを一覧表示するために使用します。
 
-## 基本的な使い方
+## 構文
 
-```console
-$ ecspresso tasks --config ecspresso.yml
+```
+ecspresso tasks [オプション]
 ```
 
 ## オプション
 
-|| オプション | 説明 | デフォルト値 |
+| オプション | 説明 | デフォルト値 |
 |------------|------|-------------|
-|| `--id` | タスクID | `""` |
-|| `--output` | 出力形式（`table`、`json`、`tsv`） | `table` |
-|| `--find` | タスク一覧から特定のタスクを検索し、JSON形式で出力 | `false` |
+| `--id` | 特定のタスクIDを表示 | `` |
+| `--output` | 出力形式（table/json） | `table` |
+| `--find-stopped` | 停止したタスクも含める | `false` |
+| `--status` | フィルタリングするタスクのステータス（RUNNING/STOPPED/...） | `` |
+| `--container-instance` | コンテナインスタンスでフィルタリング | `false` |
+| `--task-definition` | タスク定義でフィルタリング | `false` |
+| `--filter` | タスクをフィルタリングするための式 | `` |
 
 ## 使用例
 
-### サービスのタスク一覧を表示
+### 基本的な使用方法
 
-```console
-$ ecspresso tasks --config ecspresso.yml
+```bash
+ecspresso tasks
 ```
 
-### 特定のタスクの詳細を表示
+### 停止したタスクも含めて表示
 
-```console
-$ ecspresso tasks --config ecspresso.yml --id arn:aws:ecs:ap-northeast-1:123456789012:task/cluster-name/abcdef1234567890
+```bash
+ecspresso tasks --find-stopped
+```
+
+### 特定のステータスのタスクのみを表示
+
+```bash
+ecspresso tasks --status RUNNING
 ```
 
 ### JSON形式で出力
 
-```console
-$ ecspresso tasks --config ecspresso.yml --output json
+```bash
+ecspresso tasks --output json
 ```
 
-### TSV形式で出力
+### 特定のタスクの詳細を表示
 
-```console
-$ ecspresso tasks --config ecspresso.yml --output tsv
+```bash
+ecspresso tasks --id 12345678-1234-1234-1234-123456789012
 ```
 
-### タスク一覧から特定のタスクを検索
+## 出力例
 
-```console
-$ ecspresso tasks --config ecspresso.yml --find
+```
+ID                                    STATUS   TASK DEFINITION   STARTED     STOPPED
+12345678-1234-1234-1234-123456789012  RUNNING  myapp:10         2023-01-01  -
+23456789-2345-2345-2345-234567890123  RUNNING  myapp:10         2023-01-01  -
+34567890-3456-3456-3456-345678901234  STOPPED  myapp:9          2022-12-31  2023-01-01
 ```
 
-## タスク一覧表示フロー
+## タスク管理のワークフロー
 
 ```mermaid
-graph TD
-    A[tasks開始] --> B{id指定?}
-    B -->|Yes| C[指定されたタスクの詳細取得]
-    B -->|No| D[サービスのタスク一覧取得]
-    C --> E[タスク詳細表示]
-    D --> F{find?}
-    F -->|Yes| G[タスク選択UI表示]
-    F -->|No| H{output形式指定?}
-    G --> I[選択されたタスクの詳細をJSON形式で表示]
-    H -->|table| J[テーブル形式で表示]
-    H -->|json| K[JSON形式で表示]
-    H -->|tsv| L[TSV形式で表示]
-    E --> M[完了]
-    I --> M
-    J --> M
-    K --> M
-    L --> M
-```
-
-## 出力例（テーブル形式）
-
-```
-+------------------+----------+---------------+-------------+----------------+
-|       TASK       |  STATUS  |    HEALTH     |  LAUNCHED   |    INSTANCE    |
-+------------------+----------+---------------+-------------+----------------+
-| abcdef1234567890 | RUNNING  | HEALTHY       | 2 hours ago | fargate        |
-| bcdef12345678901 | RUNNING  | HEALTHY       | 2 hours ago | fargate        |
-| cdef123456789012 | RUNNING  | HEALTHY       | 2 hours ago | fargate        |
-+------------------+----------+---------------+-------------+----------------+
+flowchart TD
+    A[タスクの一覧表示] --> B{問題のあるタスク?}
+    B -->|Yes| C[タスクの詳細確認]
+    B -->|No| D[完了]
+    C --> E[問題の調査]
+    E --> F[タスクの停止または再起動]
+    F --> A
 ```
 
 ## 注意事項
 
-- `--id`オプションを指定すると、特定のタスクの詳細情報のみが表示されます
-- `--find`オプションを使用すると、タスク一覧から対話的に特定のタスクを選択できます
-- テーブル形式の出力では、タスクID、ステータス、ヘルスステータス、起動時間、インスタンスタイプが表示されます
-- JSON形式の出力では、タスクの完全な詳細情報が表示されます
+- デフォルトでは、実行中のタスクのみが表示されます。停止したタスクも表示するには、`--find-stopped`オプションを使用します。
+- `--id`オプションを使用すると、特定のタスクの詳細情報が表示されます。
+- `--filter`オプションを使用すると、複雑な条件でタスクをフィルタリングできます。
+
+## 関連コマンド
+
+- [status](./status.html) - サービスの状態を表示
+- [exec](./exec.html) - タスク上でコマンドを実行
+- [run](./run.html) - タスクを実行
