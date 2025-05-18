@@ -4,7 +4,7 @@
 
 - 実装方針の確認はせずにプルリクエストを作りきること
 
-## 前作業
+## 手順
 
 1. devin-docsのecspressoフォルダを削除する
 2. kayac/ecspressoの準備
