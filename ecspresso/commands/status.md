@@ -2,116 +2,29 @@
 layout: default
 title: status
 parent: コマンドリファレンス
-nav_order: 4
+grand_parent: ecspresso
+nav_order: 3
 ---
 
 # status
 
-`status`コマンドは、ECSサービスの現在の状態を表示します。デプロイメント、タスクセット、Auto Scaling設定、最近のイベントなどの情報を確認できます。
+`status`コマンドは、ECSサービスの現在の状態を表示するために使用します。
 
 ## 基本的な使い方
 
 ```bash
-ecspresso status
+ecspresso status [オプション]
 ```
 
 ## オプション
 
 | オプション | 説明 | デフォルト値 |
 |------------|------|------------|
-| `--events` | 表示するイベント数 | `10` |
-
-## 表示される情報
-
-`status`コマンドは以下の情報を表示します：
-
-1. **サービス情報**
-   - サービス名
-   - クラスター名
-   - タスク定義
-   - 起動タイプ
-   - プラットフォームバージョン
-   - ヘルスチェック猶予期間
-   - デプロイメントコントローラータイプ
-
-2. **デプロイメント情報**
-   - デプロイメントID
-   - ステータス
-   - タスク数（実行中/保留中/希望数）
-   - 更新日時
-
-3. **タスクセット情報**（CodeDeployを使用している場合）
-   - タスクセットID
-   - ステータス
-   - タスク数
-   - トラフィック％
-
-4. **Auto Scaling情報**
-   - スケーリングポリシー
-   - 最小容量
-   - 最大容量
-   - 現在の容量
-
-5. **イベント情報**
-   - 最近のサービスイベント（デフォルトで10件）
-   - イベントの日時
-   - イベントのメッセージ
-
-## 出力例
-
-```
-Service: your-service
-  Status: ACTIVE
-  TaskDefinition: your-task-definition:3
-  Deployments:
-    PRIMARY(id: ecs-svc/1234567890123456789)
-      Status: PRIMARY
-      TaskDefinition: your-task-definition:3
-      DesiredCount: 2
-      PendingCount: 0
-      RunningCount: 2
-      CreatedAt: 2023-01-01 12:00:00 +0000 UTC
-      UpdatedAt: 2023-01-01 12:05:00 +0000 UTC
-  Events:
-    2023-01-01 12:05:00 +0000 UTC: (service your-service) has reached a steady state.
-    2023-01-01 12:03:00 +0000 UTC: (service your-service) has started 2 tasks: (task 1234567890123456789) (task 9876543210987654321).
-    2023-01-01 12:01:00 +0000 UTC: (service your-service) registered 2 targets in target-group target-group-name
-```
-
-## Auto Scaling情報の表示
-
-サービスにApplication Auto Scalingが設定されている場合、`status`コマンドはAuto Scaling情報も表示します：
-
-```
-Service: your-service
-  ...
-  AutoScaling:
-    ScalableDimension: ecs:service:DesiredCount
-    MinCapacity: 2
-    MaxCapacity: 10
-    Status: ACTIVE
-    Policies:
-      - AlarmName: TargetTracking-service/your-cluster/your-service-AlarmHigh-12345678
-        PolicyName: your-service-tracking-policy
-        PolicyType: TargetTrackingScaling
-        TargetValue: 75.0
-```
-
-## イベント数の指定
-
-表示するイベント数を変更するには、`--events`オプションを使用します：
-
-```bash
-# 最新の20件のイベントを表示
-ecspresso status --events=20
-
-# イベントを表示しない
-ecspresso status --events=0
-```
+| `--events N` | 表示するイベント数 | 10 |
 
 ## 使用例
 
-### 基本的な使用方法
+### 基本的な使用法
 
 ```bash
 ecspresso status
@@ -120,17 +33,35 @@ ecspresso status
 ### より多くのイベントを表示
 
 ```bash
-ecspresso status --events=30
+ecspresso status --events 20
 ```
 
-### イベントを表示せずにステータスを確認
+## 出力例
 
-```bash
-ecspresso status --events=0
+```
+Service: myapp
+Cluster: application
+TaskDefinition: myapp:10
+Deployments:
+  PRIMARY myapp:10 desired=2 pending=0 running=2
+TaskSets:
+AutoScaling:
+  ScalableTarget - MIN: 1 MAX: 4
+  ScalingPolicy - CPU_UTILIZATION - Target: 75.0%
+Events:
+  2023-05-01 12:34:56 (service myapp) has reached a steady state.
+  2023-05-01 12:33:45 (service myapp) has begun draining connections on 1 tasks.
+  2023-05-01 12:32:34 (service myapp) registered 1 new tasks.
 ```
 
-## 注意事項
+## 詳細
 
-- サービスが存在しない場合は、エラーが発生します。
-- CodeDeployを使用している場合は、タスクセット情報も表示されます。
-- Auto Scalingが設定されていない場合、Auto Scaling情報は表示されません。
+`status`コマンドは以下の情報を表示します：
+
+- サービス名、クラスター名、タスク定義
+- デプロイメント状況（デザイアカウント、実行中タスク数など）
+- タスクセット情報（CodeDeployを使用している場合）
+- オートスケーリング設定（設定されている場合）
+- 最近のサービスイベント
+
+この情報は、サービスの現在の状態を確認し、問題を診断するのに役立ちます。

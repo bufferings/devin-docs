@@ -2,43 +2,20 @@
 layout: default
 title: よくあるユースケース
 parent: クイックスタート
+grand_parent: ecspresso
 nav_order: 2
 ---
 
 # よくあるユースケース
 
-このページでは、ecspressoの一般的なユースケースと実践的な使用例を紹介します。
+## ブルー/グリーンデプロイメント（CodeDeploy使用）
 
-## コンテナイメージの更新
+ecspressoはAWS CodeDeployを使用したブルー/グリーンデプロイメントをサポートしています。
 
-最も一般的なユースケースは、コンテナイメージのバージョンを更新してデプロイすることです。
-
-```bash
-# タスク定義ファイルを編集してイメージタグを更新
-# ecs-task-def.json内のimageを更新
-
-# 変更を確認
-ecspresso diff
-
-# デプロイ
-ecspresso deploy
-```
-
-## ブルー/グリーンデプロイメント
-
-AWS CodeDeployを使用したブルー/グリーンデプロイメントを行うには、サービス定義でデプロイメントコントローラーを設定します。
-
-```json
-{
-  "deploymentController": {
-    "type": "CODE_DEPLOY"
-  }
-}
-```
-
-そして、`ecspresso.yml`にCodeDeployの設定を追加します：
+### 設定例
 
 ```yaml
+# ecspresso.yml
 region: ap-northeast-1
 cluster: your-cluster
 service: your-service
@@ -49,120 +26,109 @@ codedeploy:
   deployment_group_name: DgpECS-your-cluster-your-service
 ```
 
-デプロイ時に自動ロールバックを設定することもできます：
+サービス定義にデプロイメントコントローラーの設定を追加：
+
+```json
+{
+  "deploymentController": {
+    "type": "CODE_DEPLOY"
+  }
+}
+```
+
+### デプロイ実行
 
 ```bash
 ecspresso deploy --rollback-events DEPLOYMENT_FAILURE
 ```
 
-## 環境変数の管理
+`--rollback-events`オプションを使用すると、デプロイメントが失敗した場合に自動的にロールバックします。
 
-異なる環境（開発、ステージング、本番）で異なる環境変数を使用するには、環境変数ファイルを使用します。
+## スケーリングの管理
 
-```bash
-# 開発環境用の環境変数ファイル（dev.env）
-ENVIRONMENT=development
-LOG_LEVEL=debug
-
-# 本番環境用の環境変数ファイル（prod.env）
-ENVIRONMENT=production
-LOG_LEVEL=info
-```
-
-環境変数ファイルを指定してデプロイします：
+サービスのスケーリングを設定するには：
 
 ```bash
-# 開発環境へのデプロイ
-ecspresso deploy --envfile=dev.env
+# デザイアカウントを変更
+ecspresso scale --tasks 5
 
-# 本番環境へのデプロイ
-ecspresso deploy --envfile=prod.env
-```
-
-## サービスのスケーリング
-
-サービスのタスク数を変更するには、`scale`コマンドまたは`deploy`コマンドの`--tasks`オプションを使用します。
-
-```bash
-# タスク数を5に設定
-ecspresso scale --tasks=5
-
-# または
-ecspresso deploy --tasks=5 --skip-task-definition
-```
-
-## 強制的な再デプロイ
-
-サービスを強制的に再デプロイするには、`--force-new-deployment`オプションを使用します。
-
-```bash
-ecspresso deploy --force-new-deployment
-```
-
-または、`refresh`コマンドを使用することもできます：
-
-```bash
-ecspresso refresh
-```
-
-## タスク定義の更新なしでのデプロイ
-
-サービス設定のみを更新する場合は、`--skip-task-definition`オプションを使用します。
-
-```bash
-ecspresso deploy --skip-task-definition
+# オートスケーリングの設定を変更
+ecspresso deploy --auto-scaling-min 2 --auto-scaling-max 10
 ```
 
 ## 一時的なタスクの実行
 
-メンテナンスやデータ処理などの一時的なタスクを実行するには、`run`コマンドを使用します。
+一時的なタスクを実行するには：
 
 ```bash
-# デフォルトのタスク定義を使用してタスクを実行
-ecspresso run
+# デフォルトコンテナでコマンドを実行
+ecspresso run --command "echo hello"
 
-# コマンドをオーバーライドして実行
-ecspresso run --overrides='{"containerOverrides":[{"name":"app","command":["./maintenance.sh"]}]}'
+# 特定のコンテナでコマンドを実行
+ecspresso run --command "echo hello" --container app
 
-# タスク数を指定して実行
-ecspresso run --count=3
+# 環境変数を設定してタスクを実行
+ecspresso run --command "env" --env KEY=VALUE
 ```
 
-## デプロイの待機
+## 複数環境での設定管理
 
-デプロイが完了するまで待機するには、`wait`コマンドを使用します。
+異なる環境（開発、ステージング、本番）での設定管理には、環境変数ファイルを使用できます：
 
 ```bash
-# デプロイ後に安定状態になるまで待機
-ecspresso deploy --no-wait
-ecspresso wait
+# 開発環境
+ecspresso deploy --envfile dev.env
+
+# ステージング環境
+ecspresso deploy --envfile staging.env
+
+# 本番環境
+ecspresso deploy --envfile production.env
 ```
 
-## 実行中のタスクでのコマンド実行
+環境変数ファイルの例（`dev.env`）：
 
-実行中のタスクでコマンドを実行するには、`exec`コマンドを使用します。
+```
+SERVICE_NAME=myapp-dev
+DESIRED_COUNT=1
+```
+
+## サービスのロールバック
+
+問題が発生した場合、以前のタスク定義にロールバックできます：
 
 ```bash
-# タスクIDを取得
-ecspresso tasks
+# 特定のリビジョンにロールバック
+ecspresso rollback --revision 3
 
-# タスクでコマンドを実行
-ecspresso exec --task-id=your-task-id --command="ls -la"
+# 直前のリビジョンにロールバック
+ecspresso rollback --deregister
 ```
 
-## デプロイワークフロー例
+## CI/CDパイプラインでの利用例
 
-以下は、CI/CDパイプラインでecspressoを使用する一般的なワークフローです：
+GitHub Actionsでの利用例：
 
-```mermaid
-graph TD
-    A[コードのビルド] --> B[コンテナイメージのビルド]
-    B --> C[コンテナレジストリへのプッシュ]
-    C --> D[タスク定義の更新]
-    D --> E[ecspresso diff]
-    E --> F[ecspresso deploy]
-    F --> G[ecspresso wait]
-    G --> H[デプロイ結果の通知]
+```yaml
+name: Deploy to ECS
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install ecspresso
+        uses: kayac/ecspresso-action@v1
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-1
+      - name: Deploy to ECS
+        run: ecspresso deploy --config ecspresso.yml
 ```
-
-これらのユースケースは、ecspressoの基本的な機能を示していますが、より詳細な情報については[コマンドリファレンス](../commands/)を参照してください。

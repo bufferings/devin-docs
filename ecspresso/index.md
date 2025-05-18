@@ -1,13 +1,13 @@
 ---
 layout: default
 title: ecspresso
-nav_order: 1
 has_children: true
+nav_order: 1
 ---
 
 # ecspresso ドキュメント
 
-ecspressoは、AWS Elastic Container Service (ECS)のデプロイと管理を簡素化するためのコマンドラインツールです。このドキュメントでは、ecspressoの使い方と機能について詳しく説明します。
+ecspressoは、AWS Elastic Container Service (ECS)のリソース管理を簡素化するためのコマンドラインツールです。このドキュメントでは、ecspressoの使い方と機能について詳しく説明します。
 
 ## 目次
 
@@ -27,11 +27,11 @@ ecspressoは、AWS Elastic Container Service (ECS)のデプロイと管理を簡
 ## 主な機能
 
 - ECSサービスのデプロイと管理
-- タスク定義とサービス定義の管理
-- ブルー/グリーンデプロイメント（AWS CodeDeploy連携）
+- タスク定義の登録と管理
+- サービスの状態確認とモニタリング
+- AWS CodeDeployを使用したブルー/グリーンデプロイメント
 - 一時的なタスクの実行
-- サービスの状態監視
-- 設定ファイルの検証
+- 複数環境（開発、ステージング、本番）での設定管理
 
 ## サポートとフィードバック
 
