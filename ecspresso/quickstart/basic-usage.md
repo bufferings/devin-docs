@@ -49,7 +49,7 @@ ecs-task-def.jsonを以下のように変更します。
 
 ```diff
 -  "image": "nginx:latest",
-+  "image": "nginx:{{ must_env `IMAGE_TAG` }}",
++  "image": "nginx:{% raw %}{{ must_env `IMAGE_TAG` }}{% endraw %}",
 ```
 
 そして、環境変数`IMAGE_TAG`を指定してサービスをデプロイします。

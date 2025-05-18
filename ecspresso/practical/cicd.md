@@ -90,11 +90,11 @@ CI/CDパイプラインでは、環境変数を使用してデプロイ設定を
   "containerDefinitions": [
     {
       "name": "app",
-      "image": "{{ must_env `ECR_REPOSITORY` }}:{{ must_env `IMAGE_TAG` }}",
+      "image": "{% raw %}{{ must_env `ECR_REPOSITORY` }}:{{ must_env `IMAGE_TAG` }}{% endraw %}",
       "environment": [
         {
           "name": "ENV",
-          "value": "{{ must_env `DEPLOY_ENV` }}"
+          "value": "{% raw %}{{ must_env `DEPLOY_ENV` }}{% endraw %}"
         }
       ]
     }
