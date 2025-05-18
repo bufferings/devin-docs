@@ -11,7 +11,7 @@ jobs:
         run: |
           SLACK_TEXT="<@U08PYJ5B9LK> "
 
-          SLACK_TEXT+="自動生成された初期計画は利用しないでください。"
+          SLACK_TEXT+="推測や自動生成された初期計画は決して利用しないでください。指示のみに従ってください。"
           SLACK_TEXT+="bufferings/devin-docsの.instructions/docs-ecspresso/step1.mdに従って作業を実施してください。"
           SLACK_TEXT+="他のファイルは指示があるまで読み込まないでください。"
 
