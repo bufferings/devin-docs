@@ -8,106 +8,11 @@ nav_order: 2
 
 # よくあるユースケース
 
-## ブルー/グリーンデプロイメント（CodeDeploy使用）
+このページでは、ecspressoのよくあるユースケースと応用例について説明します。
 
-ecspressoはAWS CodeDeployを使用したブルー/グリーンデプロイメントをサポートしています。
+## 1. CI/CDパイプラインでの自動デプロイ
 
-### 設定例
-
-```yaml
-# ecspresso.yml
-region: ap-northeast-1
-cluster: your-cluster
-service: your-service
-service_definition: ecs-service-def.json
-task_definition: ecs-task-def.json
-codedeploy:
-  application_name: AppECS-your-cluster-your-service
-  deployment_group_name: DgpECS-your-cluster-your-service
-```
-
-サービス定義にデプロイメントコントローラーの設定を追加：
-
-```json
-{
-  "deploymentController": {
-    "type": "CODE_DEPLOY"
-  }
-}
-```
-
-### デプロイ実行
-
-```bash
-ecspresso deploy --rollback-events DEPLOYMENT_FAILURE
-```
-
-`--rollback-events`オプションを使用すると、デプロイメントが失敗した場合に自動的にロールバックします。
-
-## スケーリングの管理
-
-サービスのスケーリングを設定するには：
-
-```bash
-# デザイアカウントを変更
-ecspresso scale --tasks 5
-
-# オートスケーリングの設定を変更
-ecspresso deploy --auto-scaling-min 2 --auto-scaling-max 10
-```
-
-## 一時的なタスクの実行
-
-一時的なタスクを実行するには：
-
-```bash
-# デフォルトコンテナでコマンドを実行
-ecspresso run --command "echo hello"
-
-# 特定のコンテナでコマンドを実行
-ecspresso run --command "echo hello" --container app
-
-# 環境変数を設定してタスクを実行
-ecspresso run --command "env" --env KEY=VALUE
-```
-
-## 複数環境での設定管理
-
-異なる環境（開発、ステージング、本番）での設定管理には、環境変数ファイルを使用できます：
-
-```bash
-# 開発環境
-ecspresso deploy --envfile dev.env
-
-# ステージング環境
-ecspresso deploy --envfile staging.env
-
-# 本番環境
-ecspresso deploy --envfile production.env
-```
-
-環境変数ファイルの例（`dev.env`）：
-
-```
-SERVICE_NAME=myapp-dev
-DESIRED_COUNT=1
-```
-
-## サービスのロールバック
-
-問題が発生した場合、以前のタスク定義にロールバックできます：
-
-```bash
-# 特定のリビジョンにロールバック
-ecspresso rollback --revision 3
-
-# 直前のリビジョンにロールバック
-ecspresso rollback --deregister
-```
-
-## CI/CDパイプラインでの利用例
-
-GitHub Actionsでの利用例：
+ecspressoはCI/CDパイプラインと簡単に統合できます。以下は、GitHub Actionsでの使用例です。
 
 ```yaml
 name: Deploy to ECS
@@ -120,9 +25,10 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - name: Install ecspresso
-        uses: kayac/ecspresso-action@v1
+      - uses: actions/checkout@v3
+      - uses: kayac/ecspresso@v2
+        with:
+          version: v2.3.0
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
         with:
@@ -130,5 +36,171 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ap-northeast-1
       - name: Deploy to ECS
-        run: ecspresso deploy --config ecspresso.yml
+        run: |
+          IMAGE_TAG=${{ github.sha }} ecspresso deploy --config ecspresso.yml
 ```
+
+## 2. Blue/Greenデプロイメント
+
+AWS CodeDeployを使用したBlue/Greenデプロイメントを実現できます。
+
+設定例（ecspresso.yml）：
+```yaml
+region: ap-northeast-1
+cluster: default
+service: myservice
+task_definition: ecs-task-def.json
+service_definition: ecs-service-def.json
+codedeploy:
+  application_name: AppECS-default-myservice
+  deployment_group_name: DgpECS-default-myservice
+  deployment_config_name: CodeDeployDefault.ECSAllAtOnce
+  termination_wait_time_in_minutes: 5
+  auto_rollback_enabled: true
+```
+
+サービス定義例（ecs-service-def.json）：
+```json
+{
+  "deploymentController": {
+    "type": "CODE_DEPLOY"
+  },
+  "loadBalancers": [
+    {
+      "containerName": "nginx",
+      "containerPort": 80,
+      "targetGroupArn": "{{ tfstate `aws_lb_target_group.blue.arn` }}"
+    }
+  ]
+}
+```
+
+デプロイコマンド：
+```bash
+ecspresso deploy --config ecspresso.yml
+```
+
+Blue/Greenデプロイメントのフロー：
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Ecspresso
+    participant ECS
+    participant CodeDeploy
+    participant ALB
+
+    User->>Ecspresso: ecspresso deploy
+    Ecspresso->>ECS: 新しいタスク定義を登録
+    Ecspresso->>CodeDeploy: デプロイメントを作成
+    CodeDeploy->>ECS: 新しいタスクセットを作成（グリーン環境）
+    CodeDeploy->>ALB: テストリスナーにグリーン環境を登録
+    CodeDeploy-->>User: テスト期間
+    CodeDeploy->>ALB: 本番リスナーをグリーン環境に切り替え
+    CodeDeploy->>ECS: 古いタスクセット（ブルー環境）を終了
+    CodeDeploy-->>Ecspresso: デプロイメント完了
+    Ecspresso-->>User: デプロイ完了
+```
+
+## 3. タスクの一時実行
+
+メンテナンスやバッチ処理のためにタスクを一時的に実行する例：
+
+```bash
+ecspresso run --config ecspresso.yml --task-definition=maintenance.json --overrides='{"containerOverrides":[{"name":"app","command":["php","artisan","migrate"]}]}'
+```
+
+このコマンドは、指定されたタスク定義を使用してタスクを実行し、コンテナのコマンドをオーバーライドします。
+
+## 4. サービスのスケーリング
+
+サービスのタスク数を変更する例：
+
+```bash
+ecspresso scale --config ecspresso.yml --tasks=5
+```
+
+このコマンドは、サービスのタスク数を5に設定します。
+
+## 5. 複数環境での運用
+
+開発、ステージング、本番環境など、複数の環境で同じ設定ファイルを使用する例：
+
+```bash
+# 開発環境
+ecspresso deploy --config ecspresso.yml --envfile=dev.env
+
+# ステージング環境
+ecspresso deploy --config ecspresso.yml --envfile=staging.env
+
+# 本番環境
+ecspresso deploy --config ecspresso.yml --envfile=prod.env
+```
+
+環境変数ファイルの例：
+
+dev.env:
+```
+CLUSTER=dev-cluster
+SERVICE=myservice-dev
+IMAGE_TAG=latest
+MIN_CAPACITY=1
+MAX_CAPACITY=2
+```
+
+staging.env:
+```
+CLUSTER=staging-cluster
+SERVICE=myservice-staging
+IMAGE_TAG=stable
+MIN_CAPACITY=2
+MAX_CAPACITY=4
+```
+
+prod.env:
+```
+CLUSTER=prod-cluster
+SERVICE=myservice-prod
+IMAGE_TAG=v1.0.0
+MIN_CAPACITY=3
+MAX_CAPACITY=10
+```
+
+設定ファイル例（ecspresso.yml）：
+```yaml
+region: ap-northeast-1
+cluster: "{{ must_env `CLUSTER` }}"
+service: "{{ must_env `SERVICE` }}"
+task_definition: ecs-task-def.json
+service_definition: ecs-service-def.json
+```
+
+## 6. 自動ロールバック
+
+デプロイ失敗時に自動的にロールバックする例：
+
+```bash
+ecspresso deploy --config ecspresso.yml --rollback-events DEPLOYMENT_FAILURE
+```
+
+このコマンドは、デプロイメントが失敗した場合に自動的に前のバージョンにロールバックします。
+
+## 7. 差分のみのデプロイ
+
+タスク定義を更新せずにサービスのみを更新する例：
+
+```bash
+ecspresso deploy --config ecspresso.yml --skip-task-definition
+```
+
+このコマンドは、タスク定義の登録をスキップし、サービス定義のみを更新します。
+
+## 8. 強制的な新規デプロイメント
+
+現在のタスク定義を使用して強制的に新しいデプロイメントを作成する例：
+
+```bash
+ecspresso deploy --config ecspresso.yml --force-new-deployment
+```
+
+このコマンドは、タスク定義が変更されていなくても、新しいデプロイメントを強制的に作成します。

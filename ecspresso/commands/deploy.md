@@ -3,101 +3,184 @@ layout: default
 title: deploy
 parent: コマンドリファレンス
 grand_parent: ecspresso
-nav_order: 1
+nav_order: 2
 ---
 
 # deploy
 
-`deploy`コマンドは、ECSサービスをデプロイするために使用します。
+`deploy`コマンドは、ECSサービスをデプロイします。
 
 ## 基本的な使い方
 
 ```bash
-ecspresso deploy [オプション]
+ecspresso deploy --config CONFIG_FILE
 ```
 
 ## オプション
 
 | オプション | 説明 | デフォルト値 |
-|------------|------|------------|
-| `--dry-run` | ドライラン（変更は適用されない） | false |
-| `--tasks N` | デザイアカウント（タスク数）を指定 | 現在の値を維持 |
-| `--skip-task-definition` | タスク定義の登録をスキップ | false |
-| `--force-new-deployment` | 強制的に新しいデプロイを実行 | false |
-| `--wait` | サービスが安定するまで待機 | true |
-| `--wait-until` | 待機条件を指定（stable または deployed） | stable |
-| `--suspend-auto-scaling` | オートスケーリングを一時停止 | - |
-| `--resume-auto-scaling` | オートスケーリングを再開 | - |
-| `--auto-scaling-min` | オートスケーリングの最小キャパシティを設定 | - |
-| `--auto-scaling-max` | オートスケーリングの最大キャパシティを設定 | - |
-| `--rollback-events` | 指定イベント発生時に自動ロールバック（CodeDeployのみ） | - |
-| `--no-update-service` | サービス定義の更新をスキップ | false |
-| `--latest-task-definition` | 最新のタスク定義を使用 | false |
+|------------|------|-------------|
+| `--config` | 設定ファイルのパス | `ecspresso.yml` |
+| `--skip-task-definition` | タスク定義の登録をスキップするかどうか | `false` |
+| `--skip-service-update` | サービスの更新をスキップするかどうか | `false` |
+| `--no-update-service` | サービスの更新をスキップするかどうか（`--skip-service-update`と同等） | `false` |
+| `--force-new-deployment` | 強制的に新しいデプロイメントを作成するかどうか | `false` |
+| `--no-wait` | サービスが安定するまで待機しないかどうか | `false` |
+| `--suspend-auto-scaling` | Auto Scalingを一時停止するかどうか | `false` |
+| `--resume-auto-scaling` | デプロイ後にAuto Scalingを再開するかどうか | `false` |
+| `--rollback-events` | 自動ロールバックをトリガーするイベント | - |
+| `--tasks` | サービスのタスク数 | - |
+| `--revision` | 使用するタスク定義のリビジョン | - |
+| `--latest-task-definition` | 最新のタスク定義を使用するかどうか | `false` |
+| `--update-service` | サービスの更新のみを行うかどうか | `false` |
+| `--overrides` | タスク定義のオーバーライド（JSON形式） | - |
+
+## 詳細
+
+`deploy`コマンドは、以下の処理を行います：
+
+1. タスク定義ファイルから新しいタスク定義を登録（`--skip-task-definition`が指定されていない場合）
+2. サービス定義ファイルを使用してサービスを更新（`--skip-service-update`または`--no-update-service`が指定されていない場合）
+3. サービスが安定するまで待機（`--no-wait`が指定されていない場合）
+
+## デプロイフロー
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Ecspresso
+    participant ECS
+    
+    User->>Ecspresso: ecspresso deploy
+    Ecspresso->>Ecspresso: 設定ファイル読み込み
+    Ecspresso->>Ecspresso: タスク定義ファイル読み込み
+    Ecspresso->>Ecspresso: テンプレート処理
+    Ecspresso->>ECS: 新しいタスク定義を登録
+    ECS-->>Ecspresso: タスク定義ARN
+    Ecspresso->>Ecspresso: サービス定義ファイル読み込み
+    Ecspresso->>Ecspresso: テンプレート処理
+    Ecspresso->>ECS: サービスを更新
+    Ecspresso->>ECS: サービスのステータスを確認
+    ECS-->>Ecspresso: サービスのステータス
+    Ecspresso->>Ecspresso: サービスが安定するまで待機
+    Ecspresso-->>User: デプロイ完了
+```
 
 ## 使用例
 
 ### 基本的なデプロイ
 
 ```bash
-ecspresso deploy
+ecspresso deploy --config ecspresso.yml
 ```
 
-### ドライランでの確認
+### タスク定義の登録をスキップしてサービスのみを更新
 
 ```bash
-ecspresso deploy --dry-run
+ecspresso deploy --config ecspresso.yml --skip-task-definition
 ```
 
-### タスク数を指定してデプロイ
+### 強制的に新しいデプロイメントを作成
 
 ```bash
-ecspresso deploy --tasks 5
+ecspresso deploy --config ecspresso.yml --force-new-deployment
 ```
 
-### タスク定義の更新をスキップ（サービス設定のみ更新）
+### サービスのタスク数を変更
 
 ```bash
-ecspresso deploy --skip-task-definition
+ecspresso deploy --config ecspresso.yml --tasks 5
 ```
 
-### 強制的に新しいデプロイを実行
+### 特定のリビジョンのタスク定義を使用
 
 ```bash
-ecspresso deploy --force-new-deployment
+ecspresso deploy --config ecspresso.yml --revision 10
 ```
 
-### オートスケーリング設定を変更してデプロイ
+### 最新のタスク定義を使用
 
 ```bash
-ecspresso deploy --auto-scaling-min 2 --auto-scaling-max 10
+ecspresso deploy --config ecspresso.yml --latest-task-definition
 ```
 
-### CodeDeployでのデプロイと自動ロールバック設定
+### デプロイ失敗時に自動ロールバック
 
 ```bash
-ecspresso deploy --rollback-events DEPLOYMENT_FAILURE
+ecspresso deploy --config ecspresso.yml --rollback-events DEPLOYMENT_FAILURE
 ```
 
-## 詳細
+### Auto Scalingを一時停止してデプロイ
 
-`deploy`コマンドは以下の処理を行います：
+```bash
+ecspresso deploy --config ecspresso.yml --suspend-auto-scaling
+```
 
-1. タスク定義の登録（`--skip-task-definition`が指定されていない場合）
-2. サービス定義の更新（`--no-update-service`が指定されていない場合）
-3. サービスのデプロイ
-4. サービスが安定するまで待機（`--wait`が指定されている場合）
+### デプロイ後にAuto Scalingを再開
 
-CodeDeployを使用している場合は、ブルー/グリーンデプロイメントが実行されます。
+```bash
+ecspresso deploy --config ecspresso.yml --resume-auto-scaling
+```
 
-## デプロイフロー
+### タスク定義をオーバーライドしてデプロイ
+
+```bash
+ecspresso deploy --config ecspresso.yml --overrides '{"containerDefinitions":[{"name":"nginx","environment":[{"name":"DEBUG","value":"true"}]}]}'
+```
+
+## CodeDeployを使用したBlue/Greenデプロイメント
+
+ecspressoは、AWS CodeDeployを使用したBlue/Greenデプロイメントをサポートしています。
+
+設定例（ecspresso.yml）：
+```yaml
+region: ap-northeast-1
+cluster: default
+service: myservice
+task_definition: ecs-task-def.json
+service_definition: ecs-service-def.json
+codedeploy:
+  application_name: AppECS-default-myservice
+  deployment_group_name: DgpECS-default-myservice
+  deployment_config_name: CodeDeployDefault.ECSAllAtOnce
+  termination_wait_time_in_minutes: 5
+  auto_rollback_enabled: true
+```
+
+サービス定義例（ecs-service-def.json）：
+```json
+{
+  "deploymentController": {
+    "type": "CODE_DEPLOY"
+  },
+  "loadBalancers": [
+    {
+      "containerName": "nginx",
+      "containerPort": 80,
+      "targetGroupArn": "arn:aws:elasticloadbalancing:ap-northeast-1:123456789012:targetgroup/blue/1234567890123456"
+    }
+  ]
+}
+```
+
+Blue/Greenデプロイメントのフロー：
 
 ```mermaid
-graph TD
-    A[開始] --> B{CodeDeploy?}
-    B -->|Yes| C[CodeDeployデプロイメント作成]
-    B -->|No| D[ECSローリングデプロイ]
-    C --> E[デプロイメント監視]
-    D --> F[サービス安定化待機]
-    E --> G[完了]
-    F --> G
+sequenceDiagram
+    participant User
+    participant Ecspresso
+    participant ECS
+    participant CodeDeploy
+    participant ALB
+
+    User->>Ecspresso: ecspresso deploy
+    Ecspresso->>ECS: 新しいタスク定義を登録
+    Ecspresso->>CodeDeploy: デプロイメントを作成
+    CodeDeploy->>ECS: 新しいタスクセットを作成（グリーン環境）
+    CodeDeploy->>ALB: テストリスナーにグリーン環境を登録
+    CodeDeploy-->>User: テスト期間
+    CodeDeploy->>ALB: 本番リスナーをグリーン環境に切り替え
+    CodeDeploy->>ECS: 古いタスクセット（ブルー環境）を終了
+    CodeDeploy-->>Ecspresso: デプロイメント完了
+    Ecspresso-->>User: デプロイ完了
 ```
