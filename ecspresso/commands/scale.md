@@ -1,77 +1,84 @@
 ---
 layout: default
 title: scale
+nav_order: 14
 parent: コマンドリファレンス
 grand_parent: ecspresso
-nav_order: 4
 ---
 
 # scale
 
-`scale`コマンドは、ECSサービスのタスク数をスケーリングするために使用します。このコマンドは、`deploy --skip-task-definition --no-update-service`と同等です。
+`scale`コマンドは、ECSサービスのタスク数を変更するために使用します。このコマンドは、`deploy --skip-task-definition --no-update-service`と同等の機能を持ちます。
 
-## 基本的な使い方
+## 構文
 
-```console
-$ ecspresso scale --config ecspresso.yml --tasks 5
+```
+ecspresso scale [オプション]
 ```
 
 ## オプション
 
-|| オプション | 説明 | デフォルト値 |
+| オプション | 説明 | デフォルト値 |
 |------------|------|-------------|
-|| `--dry-run` | 実際にスケーリングせずに、実行される操作を表示します | `false` |
-|| `--tasks` | タスクの希望数 | 現在の値を維持 |
-|| `--wait` | サービスが安定するまで待機します | `true` |
+| `--dry-run` | 実際の変更を行わずに実行内容を表示 | `false` |
+| `--tasks` | 設定するタスクの希望数 | （必須） |
+| `--wait/--no-wait` | サービスが安定するまで待機するかどうか | `true` |
+| `--wait-until` | どの状態まで待機するか（stable/deployed） | `stable` |
 
 ## 使用例
 
-### タスク数を5に設定
+### 基本的な使用方法
 
-```console
-$ ecspresso scale --config ecspresso.yml --tasks 5
+```bash
+ecspresso scale --tasks 5
 ```
 
-### ドライランモード
+### ドライランモードでの実行
 
-```console
-$ ecspresso scale --config ecspresso.yml --tasks 10 --dry-run
+```bash
+ecspresso scale --tasks 10 --dry-run
 ```
 
-### 待機なしでスケーリング
+### 待機せずにスケール
 
-```console
-$ ecspresso scale --config ecspresso.yml --tasks 3 --no-wait
+```bash
+ecspresso scale --tasks 3 --no-wait
 ```
 
-## スケーリングフロー
+## スケーリングプロセス
+
+`scale`コマンドは、サービスの希望タスク数を変更します。タスク定義は更新せず、サービス定義も更新しません。
 
 ```mermaid
-graph TD
-    A[scale開始] --> B[サービス情報取得]
-    B --> C{dry-run?}
-    C -->|Yes| D[スケーリング操作表示]
-    C -->|No| E[タスク定義更新をスキップ]
-    E --> F[サービス更新をスキップ]
-    F --> G[タスク数を更新]
-    G --> H{wait?}
-    H -->|Yes| I[サービス安定まで待機]
-    H -->|No| J[完了]
-    I --> J
-    D --> K[dry-run完了]
+sequenceDiagram
+    participant User
+    participant Ecspresso
+    participant ECS
+    
+    User->>Ecspresso: scale --tasks 5
+    Ecspresso->>ECS: UpdateService (desiredCount=5)
+    ECS-->>Ecspresso: サービスを更新
+    opt wait=true
+        Ecspresso->>ECS: DescribeServices（安定するまで待機）
+        ECS-->>Ecspresso: サービスのステータス
+    end
+    Ecspresso-->>User: スケーリング完了
 ```
 
 ## ユースケース
 
-`scale`コマンドは以下のような場合に役立ちます：
-
-1. トラフィック増加に対応するためにタスク数を増やす場合
-2. コスト削減のためにタスク数を減らす場合
-3. メンテナンスのためにサービスを一時的にスケールダウンする場合
+- トラフィック増加に対応するためのスケールアップ
+- コスト削減のためのスケールダウン
+- メンテナンス中の一時的なスケーリング
+- 定期的なスケーリングの自動化（CI/CDパイプラインと組み合わせて）
 
 ## 注意事項
 
-- このコマンドは新しいタスク定義を登録せず、現在のタスク定義を使用します
-- サービス定義の更新も行われないため、サービスの設定は変更されません
-- タスク数のみが変更されます
-- オートスケーリングが設定されている場合、手動でスケーリングした後にオートスケーリングによって上書きされる可能性があります
+- スケーリング操作は、サービスのデプロイメント設定（最小ヘルス率、最大率）に従います。
+- スケールダウン時は、ECSがどのタスクを停止するかを決定します。
+- アプリケーションオートスケーリングが設定されている場合、手動スケーリング後にオートスケーリングによって上書きされる可能性があります。
+
+## 関連コマンド
+
+- [deploy](./deploy.html) - サービスをデプロイ
+- [status](./status.html) - サービスの状態を表示

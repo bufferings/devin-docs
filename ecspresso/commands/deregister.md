@@ -1,77 +1,81 @@
 ---
 layout: default
 title: deregister
+nav_order: 4
 parent: コマンドリファレンス
 grand_parent: ecspresso
-nav_order: 15
 ---
 
 # deregister
 
-`deregister`コマンドは、タスク定義の登録を解除するために使用します。使用されていないタスク定義をクリーンアップしたり、特定のリビジョンのタスク定義を削除したりできます。
+`deregister`コマンドは、ECSタスク定義を登録解除するために使用します。
 
-## 基本的な使い方
+## 構文
 
-```console
-$ ecspresso deregister --config ecspresso.yml --revision 3
+```
+ecspresso deregister [オプション]
 ```
 
 ## オプション
 
-|| オプション | 説明 | デフォルト値 |
+| オプション | 説明 | デフォルト値 |
 |------------|------|-------------|
-|| `--dry-run` | 実際に登録解除せずに、実行される操作を表示します | `false` |
-|| `--keeps` | 使用中のタスク定義を除いて保持するタスク定義の数 | - |
-|| `--revision` | 登録解除するリビジョン番号または'latest' | `""` |
+| `--dry-run` | 実際の変更を行わずに実行内容を表示 | `false` |
+| `--revision` | 登録解除するタスク定義のリビジョン | 最新のリビジョン |
+| `--no-latest` | 最新のタスク定義を登録解除しない | `false` |
+| `--keep` | 保持するリビジョンの数 | `0` |
 
 ## 使用例
 
-### 特定のリビジョンのタスク定義を登録解除
-
-```console
-$ ecspresso deregister --config ecspresso.yml --revision 3
-```
-
 ### 最新のタスク定義を登録解除
 
-```console
-$ ecspresso deregister --config ecspresso.yml --revision latest
+```bash
+ecspresso deregister
 ```
 
-### ドライランモード
+### 特定のリビジョンを登録解除
 
-```console
-$ ecspresso deregister --config ecspresso.yml --revision 3 --dry-run
+```bash
+ecspresso deregister --revision 10
 ```
 
-### 最新の5つのみを残して古いタスク定義を登録解除
+### 最新の5つのリビジョンを残して古いリビジョンを登録解除
 
-```console
-$ ecspresso deregister --config ecspresso.yml --keeps 5
+```bash
+ecspresso deregister --keep 5
 ```
 
-## 登録解除フロー
+### ドライランモードでの実行
+
+```bash
+ecspresso deregister --dry-run
+```
+
+## 登録解除プロセス
+
+タスク定義を登録解除すると、そのタスク定義を使用して新しいタスクを起動できなくなります。ただし、既に実行中のタスクには影響しません。
 
 ```mermaid
-graph TD
-    A[deregister開始] --> B{revision指定?}
-    B -->|Yes| C[指定されたリビジョンを検索]
-    B -->|No| D{keeps指定?}
-    D -->|Yes| E[タスク定義リストを取得]
-    D -->|No| F[何もせずに終了]
-    C --> G{dry-run?}
-    E --> H[使用中のタスク定義を除外]
-    H --> I[指定した数を超えるタスク定義を特定]
-    I --> G
-    G -->|Yes| J[登録解除操作表示]
-    G -->|No| K[タスク定義登録解除実行]
-    J --> L[dry-run完了]
-    K --> M[登録解除完了]
+sequenceDiagram
+    participant User
+    participant Ecspresso
+    participant ECS
+    
+    User->>Ecspresso: deregister
+    Ecspresso->>ECS: ListTaskDefinitions
+    ECS-->>Ecspresso: タスク定義のリスト
+    Ecspresso->>ECS: DeregisterTaskDefinition
+    ECS-->>Ecspresso: タスク定義を登録解除
+    Ecspresso-->>User: 登録解除完了
 ```
 
 ## 注意事項
 
-- 現在使用中のタスク定義（アクティブなサービスで使用されているもの）は登録解除できません
-- `--keeps`オプションを使用すると、最新のN個のタスク定義を保持し、それ以外の古いタスク定義を登録解除します
-- `--revision`と`--keeps`の両方を指定した場合、`--revision`が優先されます
-- 登録解除されたタスク定義は、新しいサービスやタスクの作成には使用できなくなります
+- 登録解除されたタスク定義は、新しいタスクの起動に使用できなくなりますが、AWS管理コンソールでは引き続き表示されます（INACTIVE状態）。
+- 実行中のタスクが使用しているタスク定義を登録解除しても、そのタスクには影響しません。
+- `--keep`オプションを使用すると、最新のN個のリビジョンを保持し、それ以外のすべてのリビジョンを登録解除できます。
+
+## 関連コマンド
+
+- [register](./register.html) - タスク定義を登録
+- [revisions](./revisions.html) - タスク定義のリビジョンを表示

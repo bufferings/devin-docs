@@ -1,105 +1,81 @@
 ---
 layout: default
 title: revisions
+nav_order: 11
 parent: コマンドリファレンス
 grand_parent: ecspresso
-nav_order: 16
 ---
 
 # revisions
 
-`revisions`コマンドは、タスク定義のリビジョン一覧を表示するために使用します。特定のリビジョンの詳細情報も表示できます。
+`revisions`コマンドは、タスク定義のリビジョンを表示するために使用します。
 
-## 基本的な使い方
+## 構文
 
-```console
-$ ecspresso revisions --config ecspresso.yml
+```
+ecspresso revisions [オプション]
 ```
 
 ## オプション
 
-|| オプション | 説明 | デフォルト値 |
+| オプション | 説明 | デフォルト値 |
 |------------|------|-------------|
-|| `--revision` | リビジョン番号または'current'または'latest' | `""` |
-|| `--output` | 出力形式（`json`、`table`、`tsv`） | `table` |
+| `--max-items` | 表示するリビジョンの最大数 | `100` |
+| `--output` | 出力形式（table/json） | `table` |
 
 ## 使用例
 
-### すべてのリビジョンをテーブル形式で表示
+### 基本的な使用方法
 
-```console
-$ ecspresso revisions --config ecspresso.yml
+```bash
+ecspresso revisions
 ```
 
-### 特定のリビジョンの詳細を表示
+### 最大表示数を指定
 
-```console
-$ ecspresso revisions --config ecspresso.yml --revision 3
-```
-
-### 現在使用中のリビジョンの詳細を表示
-
-```console
-$ ecspresso revisions --config ecspresso.yml --revision current
-```
-
-### 最新のリビジョンの詳細を表示
-
-```console
-$ ecspresso revisions --config ecspresso.yml --revision latest
+```bash
+ecspresso revisions --max-items 10
 ```
 
 ### JSON形式で出力
 
-```console
-$ ecspresso revisions --config ecspresso.yml --output json
+```bash
+ecspresso revisions --output json
 ```
 
-### TSV形式で出力
+## 出力例
 
-```console
-$ ecspresso revisions --config ecspresso.yml --output tsv
+```
+FAMILY  REVISION        REGISTERED                      STATUS
+myapp   10              2023-01-01 12:00:00 +0900 JST   ACTIVE
+myapp   9               2022-12-31 12:00:00 +0900 JST   ACTIVE
+myapp   8               2022-12-30 12:00:00 +0900 JST   INACTIVE
+myapp   7               2022-12-29 12:00:00 +0900 JST   INACTIVE
 ```
 
-## リビジョン一覧表示フロー
+## リビジョン管理のワークフロー
+
+タスク定義のリビジョン管理は、ECSサービスの変更履歴を追跡するのに役立ちます。
 
 ```mermaid
-graph TD
-    A[revisions開始] --> B[タスク定義ファミリー取得]
-    B --> C{revision指定?}
-    C -->|Yes| D{current/latest/数値?}
-    C -->|No| E[全リビジョン一覧取得]
-    D -->|current| F[現在のリビジョン取得]
-    D -->|latest| G[最新のリビジョン取得]
-    D -->|数値| H[指定されたリビジョン取得]
-    F --> I[リビジョン詳細表示]
-    G --> I
-    H --> I
-    E --> J{output形式指定?}
-    J -->|table| K[テーブル形式で表示]
-    J -->|json| L[JSON形式で表示]
-    J -->|tsv| M[TSV形式で表示]
-    I --> N[完了]
-    K --> N
-    L --> N
-    M --> N
-```
-
-## 出力例（テーブル形式）
-
-```
-+--------+------------------+----------------------------------+-------------+
-| ACTIVE |    REVISION      |             IMAGE                |  REGISTERED |
-+--------+------------------+----------------------------------+-------------+
-| *      | service-name:20  | nginx:latest                    | 2 days ago  |
-|        | service-name:19  | nginx:1.19                      | 5 days ago  |
-|        | service-name:18  | nginx:1.18                      | 1 week ago  |
-+--------+------------------+----------------------------------+-------------+
+flowchart TD
+    A[タスク定義の更新] --> B[新しいリビジョンの登録]
+    B --> C[サービスのデプロイ]
+    C --> D{問題発生?}
+    D -->|Yes| E[以前のリビジョンにロールバック]
+    D -->|No| F[次の更新]
+    E --> C
+    F --> A
 ```
 
 ## 注意事項
 
-- `--revision`オプションを指定しない場合、すべてのリビジョンが一覧表示されます
-- `--revision current`は現在サービスで使用中のタスク定義を表示します
-- `--revision latest`は最新のタスク定義を表示します
-- テーブル形式の出力では、現在アクティブなリビジョンに`*`マークが付きます
+- リビジョンは、タスク定義が登録されるたびに自動的に増加します。
+- `ACTIVE`状態のリビジョンは、新しいタスクの起動に使用できます。
+- `INACTIVE`状態のリビジョンは、新しいタスクの起動には使用できませんが、実行中のタスクには影響しません。
+
+## 関連コマンド
+
+- [register](./register.html) - タスク定義を登録
+- [deregister](./deregister.html) - タスク定義を登録解除
+- [rollback](./rollback.html) - サービスをロールバック

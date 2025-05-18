@@ -1,75 +1,83 @@
 ---
 layout: default
 title: delete
+nav_order: 2
 parent: コマンドリファレンス
 grand_parent: ecspresso
-nav_order: 5
 ---
 
 # delete
 
-`delete`コマンドは、ECSサービスを削除するために使用します。サービスを削除する前に確認が求められます。
+`delete`コマンドは、ECSサービスを削除するために使用します。
 
-## 基本的な使い方
+## 構文
 
-```console
-$ ecspresso delete --config ecspresso.yml
+```
+ecspresso delete [オプション]
 ```
 
 ## オプション
 
-|| オプション | 説明 | デフォルト値 |
+| オプション | 説明 | デフォルト値 |
 |------------|------|-------------|
-|| `--dry-run` | 実際に削除せずに、実行される操作を表示します | `false` |
-|| `--force` | 確認なしで削除します | `false` |
-|| `--terminate` | タスクを終了させて削除します | `false` |
+| `--dry-run` | 実際の変更を行わずに実行内容を表示 | `false` |
+| `--force` | 確認プロンプトをスキップ | `false` |
 
 ## 使用例
 
-### ドライランモード（実際に削除せずに確認）
+### 基本的な使用方法
 
-```console
-$ ecspresso delete --config ecspresso.yml --dry-run
+```bash
+ecspresso delete
 ```
 
-### 確認なしで削除
+このコマンドを実行すると、確認プロンプトが表示されます。
 
-```console
-$ ecspresso delete --config ecspresso.yml --force
+### 確認プロンプトをスキップして削除
+
+```bash
+ecspresso delete --force
 ```
 
-### タスクを終了させて削除
+### ドライランモードでの実行
 
-```console
-$ ecspresso delete --config ecspresso.yml --terminate
+```bash
+ecspresso delete --dry-run
 ```
 
-## 削除フロー
+## 削除プロセス
+
+サービスを削除する前に、ecspressoは以下の手順を実行します：
+
+1. サービスの希望タスク数を0に設定
+2. すべてのタスクが停止するまで待機
+3. サービスを削除
 
 ```mermaid
-graph TD
-    A[delete開始] --> B[サービス情報取得]
-    B --> C{dry-run?}
-    C -->|Yes| D[削除操作表示]
-    C -->|No| E{force?}
-    E -->|Yes| F[確認をスキップ]
-    E -->|No| G[サービス名入力を要求]
-    G --> H{入力が一致?}
-    H -->|Yes| I[削除処理へ進む]
-    H -->|No| J[処理中止]
-    F --> I
-    I --> K{terminate?}
-    K -->|Yes| L[タスクを終了させて削除]
-    K -->|No| M[タスクを終了させずに削除]
-    L --> N[削除完了]
-    M --> N
-    D --> O[dry-run完了]
-    J --> P[削除キャンセル]
+sequenceDiagram
+    participant User
+    participant Ecspresso
+    participant ECS
+    
+    User->>Ecspresso: delete
+    Ecspresso->>User: 確認プロンプト
+    User->>Ecspresso: 確認
+    Ecspresso->>ECS: UpdateService (desiredCount=0)
+    ECS-->>Ecspresso: サービスを更新
+    Ecspresso->>ECS: DescribeServices（タスクが停止するまで待機）
+    ECS-->>Ecspresso: サービスのステータス
+    Ecspresso->>ECS: DeleteService
+    ECS-->>Ecspresso: サービスを削除
+    Ecspresso-->>User: 削除完了
 ```
 
 ## 注意事項
 
-- サービスを削除すると、そのサービスに関連するタスクも停止します
-- `--force`オプションを使用しない場合、安全のために削除前にサービス名の入力が求められます
-- `--terminate`オプションを使用すると、サービスのタスクが強制的に終了します（AWS ECS DeleteServiceのforceパラメータに相当）
-- 削除したサービスは復元できないため、慎重に使用してください
+- サービスを削除すると、関連するタスクも停止されますが、タスク定義は削除されません。
+- ロードバランサーやターゲットグループなどの関連リソースも削除されません。
+- 削除操作は元に戻せないため、特に本番環境では注意が必要です。
+
+## 関連コマンド
+
+- [deploy](./deploy.html) - サービスをデプロイ
+- [scale](./scale.html) - サービスをスケール（タスク数を変更）

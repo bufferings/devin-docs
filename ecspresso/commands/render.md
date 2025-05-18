@@ -1,118 +1,110 @@
 ---
 layout: default
 title: render
+nav_order: 10
 parent: コマンドリファレンス
 grand_parent: ecspresso
-nav_order: 3
 ---
 
 # render
 
-`render`コマンドは、タスク定義とサービス定義のテンプレートをレンダリングし、その結果を標準出力に表示します。テンプレート変数や関数が適用された後の最終的な設定ファイルを確認するのに役立ちます。
+`render`コマンドは、設定、サービス定義、またはタスク定義ファイルをSTDOUTにレンダリングします。テンプレート変数が展開され、最終的な設定を確認できます。
 
-## 基本的な使い方
+## 構文
 
-```console
-$ ecspresso render --config ecspresso.yml
+```
+ecspresso render [オプション]
 ```
 
 ## オプション
 
 | オプション | 説明 | デフォルト値 |
 |------------|------|-------------|
-| `--config FILE` | 設定ファイルのパス | `ecspresso.yml` |
-| `--task-definition` | タスク定義のみをレンダリング | `false` |
-| `--service-definition` | サービス定義のみをレンダリング | `false` |
-| `--appspec` | AppSpecファイルのみをレンダリング | `false` |
+| `--config-only` | 設定ファイルのみをレンダリング | `false` |
+| `--task-definition-only` | タスク定義のみをレンダリング | `false` |
+| `--service-definition-only` | サービス定義のみをレンダリング | `false` |
+| `--appspec-only` | AppSpecのみをレンダリング | `false` |
+| `--format` | 出力形式（json/yaml） | `json` |
 
 ## 使用例
 
-### すべての定義ファイルをレンダリング
+### 基本的な使用方法（すべての設定をレンダリング）
 
-```console
-$ ecspresso render --config ecspresso.yml
+```bash
+ecspresso render
 ```
 
 ### タスク定義のみをレンダリング
 
-```console
-$ ecspresso render --config ecspresso.yml --task-definition
+```bash
+ecspresso render --task-definition-only
 ```
 
 ### サービス定義のみをレンダリング
 
-```console
-$ ecspresso render --config ecspresso.yml --service-definition
+```bash
+ecspresso render --service-definition-only
 ```
 
-### AppSpecファイルのみをレンダリング（CodeDeployを使用する場合）
+### YAML形式で出力
 
-```console
-$ ecspresso render --config ecspresso.yml --appspec
-```
-
-## レンダリングフロー
-
-`render`コマンドの実行フローは以下の通りです：
-
-```mermaid
-graph TD
-    A[render開始] --> B[設定ファイル読み込み]
-    B --> C{レンダリング対象}
-    C -->|すべて| D[タスク定義レンダリング]
-    C -->|--task-definition| D
-    C -->|すべて| E[サービス定義レンダリング]
-    C -->|--service-definition| E
-    C -->|すべて| F{AppSpec設定あり?}
-    C -->|--appspec| F
-    F -->|Yes| G[AppSpecレンダリング]
-    F -->|No| H[AppSpecスキップ]
-    D --> I[標準出力に表示]
-    E --> I
-    G --> I
-    H --> I
-    I --> J[完了]
+```bash
+ecspresso render --format yaml
 ```
 
 ## テンプレート機能
 
-`render`コマンドは、設定ファイル内のテンプレート変数や関数を評価します。以下のようなテンプレート機能がサポートされています：
+`render`コマンドは、設定ファイル内のテンプレート変数を展開します。ecspressoは以下のテンプレート機能をサポートしています：
 
-### 環境変数の参照
-
+1. 環境変数の参照
 ```json
 {
-  "name": "{{ env `SERVICE_NAME` }}"
+  "containerDefinitions": [
+    {
+      "name": "app",
+      "image": "{{ env `IMAGE_NAME` }}"
+    }
+  ]
 }
 ```
 
-### 外部コマンドの実行結果の参照
-
+2. AWS Systems Manager Parameter Storeの参照
 ```json
 {
-  "image": "{{ must_env `ECR_REPOSITORY` }}:{{ must_env `IMAGE_TAG` }}"
+  "containerDefinitions": [
+    {
+      "name": "app",
+      "image": "{{ ssm `/myapp/image_name` }}"
+    }
+  ]
 }
 ```
 
-### AWS Systems Manager パラメータストアの値の参照
-
+3. AWS Secrets Managerの参照
 ```json
 {
-  "value": "{{ ssm `/path/to/parameter` }}"
+  "containerDefinitions": [
+    {
+      "secrets": [
+        {
+          "name": "API_KEY",
+          "valueFrom": "{{ secretsmanager_arn `myapp/api_key` }}"
+        }
+      ]
+    }
+  ]
 }
 ```
 
-### CloudFormation出力値の参照
+## Jsonnetサポート
 
-```json
-{
-  "subnet": "{{ cfn_output `StackName` `OutputKey` }}"
-}
+ecspressoはJsonnetテンプレート言語もサポートしています。Jsonnetを使用するには、ファイル拡張子を`.jsonnet`にし、外部変数を渡します：
+
+```bash
+ecspresso --ext-str env=production render
 ```
 
-## 注意事項
+## 関連コマンド
 
-- `render`コマンドは実際のデプロイを行わず、設定ファイルの内容を表示するだけです
-- テンプレート変数や関数が正しく評価されない場合、エラーが表示されます
-- 環境変数が見つからない場合、`env`関数は空文字列を返しますが、`must_env`関数はエラーを発生させます
-- レンダリング結果は、実際にAWSに送信される内容と同じです
+- [verify](./verify.html) - 設定内のリソースを検証
+- [diff](./diff.html) - タスク定義、サービス定義と実行中のサービス間の差分を表示

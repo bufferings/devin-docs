@@ -1,147 +1,132 @@
 ---
 layout: default
-title: 複数環境の管理
+title: 複数環境管理
+nav_order: 3
 parent: 実践ガイド
 grand_parent: ecspresso
-nav_order: 2
 ---
 
-# 複数環境の管理
+# 複数環境管理
 
-多くの場合、アプリケーションは開発環境、ステージング環境、本番環境など、複数の環境にデプロイされます。ecspressoを使用して、これらの環境を効率的に管理する方法を説明します。
+ecspressoを使用して、開発、ステージング、本番などの複数環境を効率的に管理する方法を説明します。
 
-## 環境ごとの設定ファイル
+## 環境変数ファイルの活用
 
-複数環境を管理する最も基本的な方法は、環境ごとに別々の設定ファイルを用意することです：
+ecspressoは`--envfile`オプションを使用して、環境ごとに異なる設定を適用できます。
 
-```
-.
-├── ecspresso.dev.yml     # 開発環境用設定
-├── ecspresso.staging.yml # ステージング環境用設定
-└── ecspresso.prod.yml    # 本番環境用設定
-```
+```bash
+# 開発環境
+ecspresso deploy --envfile dev.env
 
-各環境に対してコマンドを実行する例：
+# ステージング環境
+ecspresso deploy --envfile staging.env
 
-```console
-# 開発環境へのデプロイ
-$ ecspresso deploy --config ecspresso.dev.yml
-
-# ステージング環境へのデプロイ
-$ ecspresso deploy --config ecspresso.staging.yml
-
-# 本番環境へのデプロイ
-$ ecspresso deploy --config ecspresso.prod.yml
+# 本番環境
+ecspresso deploy --envfile production.env
 ```
 
-## 環境変数ファイルの使用
-
-同じ設定ファイルを使用しながら、環境ごとに異なる値を設定するには、環境変数ファイルを使用します：
+環境変数ファイルの例：
 
 ```
-.
-├── ecspresso.yml  # 共通設定
-├── .env.dev       # 開発環境用環境変数
-├── .env.staging   # ステージング環境用環境変数
-└── .env.prod      # 本番環境用環境変数
-```
-
-環境変数ファイルの例（`.env.dev`）：
-
-```
-CLUSTER_NAME=app-dev
-SERVICE_NAME=api-dev
-DESIRED_COUNT=1
+# dev.env
+TASK_CPU=256
+TASK_MEMORY=512
+CONTAINER_IMAGE=myapp:dev
 MIN_CAPACITY=1
 MAX_CAPACITY=2
-```
 
-環境変数ファイルの例（`.env.prod`）：
-
-```
-CLUSTER_NAME=app-prod
-SERVICE_NAME=api-prod
-DESIRED_COUNT=3
-MIN_CAPACITY=2
+# production.env
+TASK_CPU=1024
+TASK_MEMORY=2048
+CONTAINER_IMAGE=myapp:release
+MIN_CAPACITY=3
 MAX_CAPACITY=10
 ```
 
-タスク定義での環境変数の使用例：
+## Jsonnetテンプレートの活用
 
-```json
+より柔軟な設定管理のために、Jsonnetテンプレートを使用できます：
+
+```jsonnet
+// ecs-task-def.jsonnet
+local env = std.extVar('env');
+
 {
-  "family": "{{ env `SERVICE_NAME` }}",
-  "containerDefinitions": [
+  family: 'myapp-' + env,
+  cpu: if env == 'production' then '1024' else '256',
+  memory: if env == 'production' then '2048' else '512',
+  containerDefinitions: [
     {
-      "name": "app",
-      "image": "123456789012.dkr.ecr.ap-northeast-1.amazonaws.com/{{ env `SERVICE_NAME` }}:latest",
-      "essential": true
+      name: 'app',
+      image: 'myapp:' + (if env == 'production' then 'release' else 'dev'),
+      // 他の設定...
     }
   ]
 }
 ```
 
-サービス定義での環境変数の使用例：
+Jsonnetテンプレートを使用する場合は、設定ファイルの拡張子を`.jsonnet`にし、外部変数を渡します：
+
+```bash
+ecspresso --ext-str env=dev deploy
+ecspresso --ext-str env=production deploy
+```
+
+## 複数環境管理のワークフロー
+
+```mermaid
+graph TD
+    A[共通設定テンプレート] --> B{環境変数}
+    B -->|dev.env| C[開発環境設定]
+    B -->|staging.env| D[ステージング環境設定]
+    B -->|production.env| E[本番環境設定]
+    C --> F[開発環境にデプロイ]
+    D --> G[ステージング環境にデプロイ]
+    E --> H[本番環境にデプロイ]
+```
+
+## 環境固有の設定ファイル
+
+別の方法として、環境ごとに異なる設定ファイルを用意することもできます：
+
+```
+project/
+├── dev/
+│   ├── ecspresso.yml
+│   ├── ecs-service-def.json
+│   └── ecs-task-def.json
+├── staging/
+│   ├── ecspresso.yml
+│   ├── ecs-service-def.json
+│   └── ecs-task-def.json
+└── production/
+    ├── ecspresso.yml
+    ├── ecs-service-def.json
+    └── ecs-task-def.json
+```
+
+この場合、各環境ディレクトリで個別にecspressoコマンドを実行します：
+
+```bash
+cd dev && ecspresso deploy
+cd staging && ecspresso deploy
+cd production && ecspresso deploy
+```
+
+## AWS Systems Manager Parameter Storeの活用
+
+環境固有の設定値をAWS Systems Manager Parameter Storeに保存し、ecspressoのテンプレート機能で参照することができます：
 
 ```json
 {
-  "cluster": "{{ env `CLUSTER_NAME` }}",
-  "serviceName": "{{ env `SERVICE_NAME` }}",
-  "desiredCount": {{ env `DESIRED_COUNT` }},
-  "deploymentConfiguration": {
-    "minimumHealthyPercent": 100,
-    "maximumPercent": 200
-  }
-}
-```
-
-環境変数ファイルを使用したデプロイ例：
-
-```console
-# 開発環境へのデプロイ
-$ ecspresso deploy --config ecspresso.yml --envfile .env.dev
-
-# ステージング環境へのデプロイ
-$ ecspresso deploy --config ecspresso.yml --envfile .env.staging
-
-# 本番環境へのデプロイ
-$ ecspresso deploy --config ecspresso.yml --envfile .env.prod
-```
-
-## テンプレート関数の活用
-
-ecspressoは、設定ファイル内でテンプレート関数を使用できます。これにより、環境に応じた値を動的に設定できます：
-
-### 環境変数の参照
-
-```json
-{
-  "family": "{{ env `SERVICE_NAME` }}",
   "containerDefinitions": [
     {
       "name": "app",
-      "image": "{{ must_env `ECR_REPOSITORY` }}:{{ must_env `IMAGE_TAG` }}",
-      "essential": true
-    }
-  ]
-}
-```
-
-### AWS Systems Manager パラメータストアの値の参照
-
-```json
-{
-  "containerDefinitions": [
-    {
-      "name": "app",
+      "image": "{{ ssm `/myapp/container_image` }}",
       "environment": [
         {
           "name": "DATABASE_URL",
-          "value": "{{ ssm `/app/{{ env `ENV` }}/database_url` }}"
-        },
-        {
-          "name": "API_KEY",
-          "value": "{{ ssm `/app/{{ env `ENV` }}/api_key` }}"
+          "value": "{{ ssm `/myapp/database_url` }}"
         }
       ]
     }
@@ -149,92 +134,21 @@ ecspressoは、設定ファイル内でテンプレート関数を使用でき�
 }
 ```
 
-### CloudFormation出力値の参照
+## AWS Secrets Managerの活用
+
+機密情報はAWS Secrets Managerに保存し、ecspressoから参照できます：
 
 ```json
 {
-  "networkConfiguration": {
-    "awsvpcConfiguration": {
-      "subnets": [
-        "{{ cfn_output `NetworkStack-{{ env `ENV` }}` `PrivateSubnet1` }}",
-        "{{ cfn_output `NetworkStack-{{ env `ENV` }}` `PrivateSubnet2` }}"
-      ],
-      "securityGroups": [
-        "{{ cfn_output `SecurityStack-{{ env `ENV` }}` `AppSecurityGroup` }}"
+  "containerDefinitions": [
+    {
+      "secrets": [
+        {
+          "name": "API_KEY",
+          "valueFrom": "{{ secretsmanager_arn `myapp/api_key` }}"
+        }
       ]
     }
-  }
+  ]
 }
 ```
-
-## 環境ごとのディレクトリ構造
-
-より複雑なプロジェクトでは、環境ごとにディレクトリを分けることも効果的です：
-
-```
-.
-├── common/
-│   ├── task-definition-base.json  # 共通のタスク定義
-│   └── service-definition-base.json  # 共通のサービス定義
-├── dev/
-│   ├── ecspresso.yml
-│   ├── ecs-task-def.json
-│   ├── ecs-service-def.json
-│   └── .env
-├── staging/
-│   ├── ecspresso.yml
-│   ├── ecs-task-def.json
-│   ├── ecs-service-def.json
-│   └── .env
-└── prod/
-    ├── ecspresso.yml
-    ├── ecs-task-def.json
-    ├── ecs-service-def.json
-    └── .env
-```
-
-## 複数環境のデプロイフロー
-
-複数環境へのデプロイフローの例：
-
-```mermaid
-graph TD
-    A[コード変更] --> B[ビルド]
-    B --> C[テスト]
-    C --> D[コンテナイメージ作成]
-    D --> E[コンテナレジストリへのプッシュ]
-    E --> F[開発環境へのデプロイ]
-    F --> G{開発環境テスト成功?}
-    G -->|Yes| H[ステージング環境へのデプロイ]
-    G -->|No| A
-    H --> I{ステージング環境テスト成功?}
-    I -->|Yes| J[本番環境へのデプロイ]
-    I -->|No| A
-    J --> K[完了]
-```
-
-## 環境ごとのデプロイ戦略
-
-環境によって異なるデプロイ戦略を採用することも可能です：
-
-1. 開発環境：迅速なデプロイを優先
-   ```console
-   $ ecspresso deploy --config ecspresso.dev.yml --force-new-deployment
-   ```
-
-2. ステージング環境：本番環境と同じ設定でテスト
-   ```console
-   $ ecspresso deploy --config ecspresso.staging.yml --rollback-events DEPLOYMENT_FAILURE
-   ```
-
-3. 本番環境：安全性を最優先
-   ```console
-   $ ecspresso deploy --config ecspresso.prod.yml --rollback-events DEPLOYMENT_FAILURE --suspend-auto-scaling
-   ```
-
-## 注意事項
-
-- 環境変数ファイルには機密情報を含めないようにしてください
-- 機密情報はAWS Systems Manager パラメータストアやAWS Secrets Managerを使用して管理することをお勧めします
-- 本番環境へのデプロイ権限は制限することをお勧めします
-- 環境ごとに異なるIAMロールを使用することで、セキュリティを強化できます

@@ -1,107 +1,83 @@
 ---
 layout: default
 title: 基本的な使い方
+nav_order: 1
 parent: クイックスタート
 grand_parent: ecspresso
-nav_order: 1
 ---
 
 # 基本的な使い方
 
-ecspressoを使用するための基本的な手順を説明します。
+ecspressoを使い始めるための基本的な手順を説明します。
 
-## 設定ファイルの作成
+## 設定ファイルの初期化
 
-ecspressoを使用するには、まず設定ファイル（`ecspresso.yml`）を作成する必要があります。`init`コマンドを使用して、既存のECSサービスから設定ファイルを生成することができます。
+既存のECSサービスからecspressoの設定を初期化するには、以下のコマンドを使用します。
 
-```console
-$ ecspresso init --region ap-northeast-1 --cluster your-cluster --service your-service --config ecspresso.yml
+```bash
+ecspresso init --region ap-northeast-1 --cluster your-cluster-name --service your-service-name
 ```
 
-または、新しいサービスのために手動で設定ファイルを作成することもできます：
+これにより、以下のファイルが生成されます：
+- `ecspresso.yml` - ecspressoの設定ファイル
+- `ecs-service-def.json` - ECSサービス定義
+- `ecs-task-def.json` - ECSタスク定義
 
-```yaml
-# ecspresso.yml
-region: ap-northeast-1
-cluster: your-cluster
-service: your-service
-service_definition: ecs-service-def.json
-task_definition: ecs-task-def.json
-timeout: 10m
+もし既存のサービスがなく、新しくタスク定義から始める場合は：
+
+```bash
+ecspresso init --region ap-northeast-1 --cluster your-cluster-name --task-definition family:revision
 ```
 
-## タスク定義とサービス定義
-
-ecspressoは、タスク定義とサービス定義をJSONまたはYAML形式で管理します。既存のサービスから定義ファイルを生成するには：
-
-```console
-$ ecspresso init --region ap-northeast-1 --cluster your-cluster --service your-service --config ecspresso.yml
-```
-
-このコマンドは、`ecs-task-def.json`と`ecs-service-def.json`を生成します。
-
-## デプロイの実行
-
-サービスをデプロイするには、`deploy`コマンドを使用します：
-
-```console
-$ ecspresso deploy --config ecspresso.yml
-```
-
-デプロイ前に変更内容を確認するには、`--dry-run`オプションを使用します：
-
-```console
-$ ecspresso deploy --config ecspresso.yml --dry-run
-```
-
-## サービスの状態確認
-
-サービスの状態を確認するには、`status`コマンドを使用します：
-
-```console
-$ ecspresso status --config ecspresso.yml
-```
-
-## 基本的なワークフロー
-
-ecspressoを使用した基本的なワークフローは以下の通りです：
+## デプロイフロー
 
 ```mermaid
 graph TD
-    A[ecspresso init] --> B[タスク定義の編集]
-    B --> C[ecspresso deploy --dry-run]
-    C --> D{変更内容の確認}
-    D -->|OK| E[ecspresso deploy]
-    D -->|NG| B
-    E --> F[ecspresso status]
-    F --> G{サービス状態の確認}
-    G -->|問題あり| H[トラブルシューティング]
-    G -->|正常| I[完了]
-    H --> B
+    A[設定ファイル準備] --> B[設定の検証]
+    B --> C[サービス/タスク定義の差分確認]
+    C --> D[デプロイ実行]
+    D --> E[サービスの状態確認]
+    
+    B --> |verify| F[設定の検証]
+    C --> |diff| G[差分の表示]
+    D --> |deploy| H[デプロイ]
+    E --> |status/wait| I[状態確認]
 ```
 
-## 設定ファイルの検証
+## デプロイの実行
 
-デプロイ前に設定ファイルを検証するには、`verify`コマンドを使用します：
+設定ファイルを準備したら、以下のステップでデプロイを行います：
 
-```console
-$ ecspresso verify --config ecspresso.yml
+1. 設定の検証
+```bash
+ecspresso verify
 ```
 
-## 設定ファイルのレンダリング
-
-テンプレート変数が適用された後の設定ファイルを確認するには、`render`コマンドを使用します：
-
-```console
-$ ecspresso render --config ecspresso.yml
+2. デプロイする内容の差分を確認
+```bash
+ecspresso diff
 ```
 
-## 差分の確認
-
-現在のECS設定と新しい設定の差分を確認するには、`diff`コマンドを使用します：
-
-```console
-$ ecspresso diff --config ecspresso.yml
+3. 実際にデプロイを実行
+```bash
+ecspresso deploy
 ```
 
-これにより、タスク定義とサービス定義の変更点が表示されます。
+4. サービスの状態を確認
+```bash
+ecspresso status
+```
+
+## 一時的なタスクの実行
+
+一時的なタスクを実行するには、以下のコマンドを使用します：
+
+```bash
+ecspresso run
+```
+
+タスク定義のオーバーライドを指定することもできます：
+
+```bash
+ecspresso run --overrides '{"containerOverrides":[{"name":"app","command":["command", "arg1", "arg2"]}]}'
+```

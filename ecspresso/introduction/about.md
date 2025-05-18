@@ -1,51 +1,35 @@
 ---
 layout: default
-title: ecspressoとは
+title: ecspressoについて
+nav_order: 1
 parent: はじめに
 grand_parent: ecspresso
-nav_order: 1
 ---
 
-# ecspressoとは
+# ecspressoについて
 
-ecspressoは、AWS Elastic Container Service (ECS) のデプロイと管理を簡素化するためのコマンドラインツールです。Go言語で実装されており、AWSのECSサービスとタスク定義を効率的に管理することができます。
+ecspressoは、AWS Elastic Container Service (ECS)のデプロイと管理を簡単にするためのツールです。AWSのCLIやコンソールよりも簡潔なコマンドで、ECSのサービスやタスク定義を扱うことができます。
 
-## 主な特徴
+## 主な機能
 
-ecspressoは以下のような特徴を持っています：
+- ECSサービスのデプロイ（ローリングデプロイとBlue/Greenデプロイをサポート）
+- タスク定義の登録と管理
+- 一時的なタスクの実行
+- サービスの状態確認
+- 設定ファイルの検証と表示
 
-- **宣言的な設定**: JSONやYAML形式の設定ファイルを使用して、ECSサービスとタスク定義を宣言的に管理できます
-- **差分デプロイ**: 現在のECS設定と新しい設定の差分を確認してから、必要な変更のみを適用できます
-- **ローカル開発との統合**: ローカル環境で設定を検証してから、本番環境にデプロイできます
-- **Blue/Greenデプロイメント**: AWS CodeDeployと統合して、ゼロダウンタイムデプロイメントを実現できます
-- **複数環境対応**: 開発、ステージング、本番など、複数の環境で同じ設定ファイルを使い分けることができます
-- **テンプレート機能**: 環境変数や外部コマンドの出力を設定ファイルに埋め込むことができます
-
-## ユースケース
-
-ecspressoは以下のようなユースケースに適しています：
-
-- コンテナ化されたアプリケーションのECSへのデプロイ
-- CI/CDパイプラインでの自動デプロイ
-- 複数環境（開発、ステージング、本番）での一貫したデプロイ
-- Blue/Greenデプロイメントによるゼロダウンタイムリリース
-- ECSサービスの状態監視と管理
-
-## アーキテクチャ
-
-ecspressoは以下のようなアーキテクチャで動作します：
+## アーキテクチャ概要
 
 ```mermaid
 graph TD
-    A[ecspresso CLI] --> B[設定ファイル]
-    B --> C[タスク定義]
-    B --> D[サービス定義]
-    A --> E[AWS SDK]
-    E --> F[AWS ECS API]
-    E --> G[AWS CodeDeploy API]
-    F --> H[ECSサービス]
-    F --> I[ECSタスク]
-    G --> J[CodeDeployデプロイメント]
+    A[ecspresso] --> B[AWS ECS]
+    A --> C[AWS CodeDeploy]
+    A --> D[AWS CloudFormation]
+    A --> E[AWS SSM Parameter Store]
+    A --> F[AWS Secrets Manager]
+    B --> G[ECSサービス]
+    B --> H[ECSタスク定義]
+    B --> I[ECSタスク]
 ```
 
-ecspressoはAWS SDKを使用してECS APIとCodeDeploy APIと通信し、ECSサービスとタスクを管理します。設定ファイルはローカルで管理され、ecspressoコマンドを実行する際に使用されます。
+ecspressoはAWS SDKを使用して、ECSおよび関連するAWSサービスと通信します。設定ファイル（ecspresso.yml）と定義ファイル（ecs-task-def.json、ecs-service-def.json）を使用して、ECSリソースを管理します。
