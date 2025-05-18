@@ -2,50 +2,56 @@
 layout: default
 title: ecspressoとは
 parent: はじめに
+grand_parent: ecspresso
 nav_order: 1
 ---
 
 # ecspressoとは
 
-ecspressoは、AWS Elastic Container Service (ECS)のデプロイと管理を簡素化するためのコマンドラインツールです。インフラストラクチャ・アズ・コードの原則に従って、ECSリソースを効率的に管理することができます。
+ecspressoは、AWS Elastic Container Service (ECS)のリソース管理を簡素化するためのコマンドラインツールです。Goで開発されており、ECSサービスのデプロイ、タスク定義の管理、サービスの状態監視など、様々な操作を効率的に行うことができます。
 
 ## 主な機能
 
-- **ECSサービスのデプロイ**: タスク定義とサービス定義を使用したデプロイ
-- **ブルー/グリーンデプロイメント**: AWS CodeDeployとの統合による無停止デプロイ
-- **タスク実行**: メンテナンスや管理目的のための一時的なタスク実行
-- **サービス管理**: サービスの状態確認、スケーリング、ロールバックなど
-- **設定検証**: デプロイ前の設定ファイルの検証
-- **複数環境対応**: 開発、ステージング、本番環境など複数環境での設定管理
+- ECSサービスのデプロイと管理
+- タスク定義の登録と管理
+- サービスの状態確認とモニタリング
+- AWS CodeDeployを使用したブルー/グリーンデプロイメント
+- 一時的なタスクの実行
+- 複数環境（開発、ステージング、本番）での設定管理
 
-## アーキテクチャ概要
+## アーキテクチャ
 
-ecspressoは、設定ファイル（`ecspresso.yml`）とタスク定義ファイル（`ecs-task-def.json`）、サービス定義ファイル（`ecs-service-def.json`）を使用して、AWS ECSリソースを管理します。
+ecspressoは、AWS SDK for Goを使用してAWS ECS APIと通信します。設定ファイルとして`ecspresso.yml`を使用し、タスク定義とサービス定義をJSON形式で管理します。
 
 ```mermaid
 graph TD
-    A[ecspresso.yml] --> B[ecspresso CLI]
-    C[ecs-task-def.json] --> B
-    D[ecs-service-def.json] --> B
-    B --> E[AWS SDK]
-    E --> F[AWS ECS]
-    E --> G[AWS CodeDeploy]
-    E --> H[AWS CloudWatch]
-    E --> I[その他のAWSサービス]
+    A[ecspresso CLI] --> B[設定ファイル]
+    A --> C[タスク定義]
+    A --> D[サービス定義]
+    A --> E[AWS SDK for Go]
+    E --> F[AWS ECS API]
+    E --> G[AWS CodeDeploy API]
+    E --> H[その他のAWS API]
 ```
 
-## 使用シナリオ
+## データフロー
 
-ecspressoは以下のようなシナリオで特に役立ちます：
+ecspressoを使用したデプロイメントのデータフローは次のようになります：
 
-1. **CI/CDパイプラインの自動化**: コンテナイメージの更新とデプロイの自動化
-2. **複数環境の管理**: 開発、テスト、本番環境など複数環境での一貫したデプロイ
-3. **大規模サービスの管理**: マイクロサービスアーキテクチャにおける複数サービスの管理
-4. **運用タスクの実行**: バッチ処理やメンテナンスタスクの実行
-
-## ecspressoの利点
-
-- **シンプルなコマンドライン操作**: 複雑なAWS ECSの操作をシンプルなコマンドで実行
-- **設定ファイルによる管理**: インフラストラクチャ・アズ・コードの原則に基づいた管理
-- **デプロイの安全性**: ロールバック機能やブルー/グリーンデプロイメントによる安全なデプロイ
-- **柔軟な設定**: Jsonnetによるテンプレート機能のサポート
+```mermaid
+sequenceDiagram
+    participant User as ユーザー
+    participant Ecspresso as ecspresso
+    participant AWS as AWS API
+    
+    User->>Ecspresso: コマンド実行
+    Ecspresso->>Ecspresso: 設定ファイル読み込み
+    Ecspresso->>AWS: リソース情報取得
+    AWS-->>Ecspresso: 現在の状態を返す
+    Ecspresso->>Ecspresso: 差分を計算
+    Ecspresso->>User: 差分を表示（必要に応じて）
+    User->>Ecspresso: 確認（必要に応じて）
+    Ecspresso->>AWS: リソース更新
+    AWS-->>Ecspresso: 更新結果
+    Ecspresso->>User: 結果表示
+```

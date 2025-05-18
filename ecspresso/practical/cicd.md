@@ -2,31 +2,17 @@
 layout: default
 title: CI/CDパイプラインとの統合
 parent: 実践ガイド
+grand_parent: ecspresso
 nav_order: 1
 ---
 
 # CI/CDパイプラインとの統合
 
-ecspressoは、CI/CDパイプラインと簡単に統合できるように設計されています。このガイドでは、一般的なCI/CDツールでecspressoを使用する方法を説明します。
+ecspressoは、様々なCI/CDパイプラインと簡単に統合できます。このページでは、一般的なCI/CDツールとの統合方法を紹介します。
 
-## 基本的なCI/CDフロー
+## GitHub Actions
 
-ecspressoを使用した一般的なCI/CDフローは以下のようになります：
-
-```mermaid
-graph TD
-    A[コードのプッシュ] --> B[ビルド]
-    B --> C[テスト]
-    C --> D[コンテナイメージのビルド]
-    D --> E[コンテナイメージのプッシュ]
-    E --> F[タスク定義の更新]
-    F --> G[ecspressoによるデプロイ]
-    G --> H[デプロイ後のテスト]
-```
-
-## GitHub Actions での使用例
-
-GitHub Actionsでecspressoを使用する例を示します：
+GitHub Actionsでecspressoを使用する例：
 
 ```yaml
 name: Deploy to ECS
@@ -39,100 +25,50 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-
+      - uses: actions/checkout@v3
+      
+      - name: Install ecspresso
+        uses: kayac/ecspresso-action@v1
+        
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
+        uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ap-northeast-1
-
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v1
-
-      - name: Build, tag, and push image to Amazon ECR
-        id: build-image
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: your-repository
-          IMAGE_TAG: ${{ github.sha }}
-        run: |
-          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
-          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-          echo "::set-output name=image::$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
-
-      - name: Download ecspresso
-        run: |
-          curl -sL https://github.com/kayac/ecspresso/releases/download/v1.5.0/ecspresso_1.5.0_linux_amd64.tar.gz | tar xzf -
-          chmod +x ecspresso
-          ./ecspresso version
-
-      - name: Update task definition
-        env:
-          IMAGE: ${{ steps.build-image.outputs.image }}
-        run: |
-          # 環境変数を使用してタスク定義を更新
-          export IMAGE_TAG=$IMAGE
-          ./ecspresso render --task-def > task-def.json
-          cat task-def.json
-
+          
       - name: Deploy to ECS
-        run: |
-          ./ecspresso deploy --wait-until=deployed
+        run: ecspresso deploy --config ecspresso.yml
 ```
 
-## CircleCI での使用例
+## CircleCI
 
-CircleCIでecspressoを使用する例を示します：
+CircleCIでecspressoを使用する例：
 
 ```yaml
 version: 2.1
+
+orbs:
+  ecspresso: fujiwara/ecspresso@1.0
+
 jobs:
   deploy:
     docker:
-      - image: cimg/base:2021.04
+      - image: cimg/base:2023.03
     steps:
       - checkout
-      - setup_remote_docker:
-          version: 20.10.7
-      - run:
-          name: Install AWS CLI
-          command: |
-            curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-            unzip awscliv2.zip
-            sudo ./aws/install
-      - run:
-          name: Configure AWS credentials
-          command: |
-            aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
-            aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
-            aws configure set default.region ap-northeast-1
-      - run:
-          name: Login to Amazon ECR
-          command: |
-            aws ecr get-login-password | docker login --username AWS --password-stdin $ECR_REGISTRY
-      - run:
-          name: Build and push Docker image
-          command: |
-            docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$CIRCLE_SHA1 .
-            docker push $ECR_REGISTRY/$ECR_REPOSITORY:$CIRCLE_SHA1
-      - run:
-          name: Install ecspresso
-          command: |
-            curl -sL https://github.com/kayac/ecspresso/releases/download/v1.5.0/ecspresso_1.5.0_linux_amd64.tar.gz | tar xzf -
-            chmod +x ecspresso
-            ./ecspresso version
+      - ecspresso/install
+      - aws-cli/setup:
+          aws-access-key-id: AWS_ACCESS_KEY_ID
+          aws-secret-access-key: AWS_SECRET_ACCESS_KEY
+          aws-region: AWS_REGION
       - run:
           name: Deploy to ECS
-          command: |
-            export IMAGE_TAG=$ECR_REGISTRY/$ECR_REPOSITORY:$CIRCLE_SHA1
-            ./ecspresso deploy --wait-until=deployed
+          command: ecspresso deploy --config ecspresso.yml
 
 workflows:
   version: 2
-  build-and-deploy:
+  deploy:
     jobs:
       - deploy:
           filters:
@@ -140,38 +76,24 @@ workflows:
               only: main
 ```
 
-## AWS CodePipeline での使用例
+## AWS CodeBuild
 
-AWS CodePipelineでecspressoを使用する例を示します：
+AWS CodeBuildでecspressoを使用する例：
 
 ```yaml
-# buildspec.yml
 version: 0.2
 
 phases:
   install:
     runtime-versions:
-      docker: 18
+      golang: 1.20
     commands:
-      - curl -sL https://github.com/kayac/ecspresso/releases/download/v1.5.0/ecspresso_1.5.0_linux_amd64.tar.gz | tar xzf -
-      - chmod +x ecspresso
-      - ./ecspresso version
-  pre_build:
-    commands:
-      - echo Logging in to Amazon ECR...
-      - aws ecr get-login-password | docker login --username AWS --password-stdin $ECR_REGISTRY
+      - curl -sL https://github.com/kayac/ecspresso/releases/download/latest/ecspresso_linux_amd64.tar.gz | tar xzC /tmp
+      - sudo install /tmp/ecspresso /usr/local/bin/ecspresso
+      
   build:
     commands:
-      - echo Build started on `date`
-      - echo Building the Docker image...
-      - docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$CODEBUILD_RESOLVED_SOURCE_VERSION .
-      - docker push $ECR_REGISTRY/$ECR_REPOSITORY:$CODEBUILD_RESOLVED_SOURCE_VERSION
-  post_build:
-    commands:
-      - echo Build completed on `date`
-      - echo Deploying to ECS...
-      - export IMAGE_TAG=$ECR_REGISTRY/$ECR_REPOSITORY:$CODEBUILD_RESOLVED_SOURCE_VERSION
-      - ./ecspresso deploy --wait-until=deployed
+      - ecspresso deploy --config ecspresso.yml
 
 artifacts:
   files:
@@ -179,114 +101,56 @@ artifacts:
     - taskdef.json
 ```
 
-## 環境変数の活用
+## デプロイパイプラインの設計
 
-CI/CD環境では、環境変数を活用してecspressoの設定を動的に変更することができます：
+ecspressoを使用した一般的なデプロイパイプラインは以下のようになります：
 
-```bash
-# 環境変数を使用してタスク定義を更新
-export IMAGE_TAG=your-registry/your-repository:latest
-export ENVIRONMENT=production
-export MEMORY=1024
-export CPU=512
-
-# 環境変数を展開してタスク定義をレンダリング
-ecspresso render --task-def > task-def.json
-
-# デプロイ実行
-ecspresso deploy
+```mermaid
+graph LR
+    A[コード変更] --> B[ビルド]
+    B --> C[テスト]
+    C --> D[コンテナイメージ作成]
+    D --> E[イメージプッシュ]
+    E --> F[タスク定義更新]
+    F --> G[ecspresso deploy]
+    G --> H[デプロイ監視]
+    H --> I[検証]
 ```
 
-## 複数環境へのデプロイ
+## 環境別の設定管理
 
-CI/CDパイプラインで複数環境（開発、ステージング、本番）へのデプロイを管理するには、以下のアプローチが有効です：
-
-1. **ブランチベースのデプロイ**：GitHubのブランチに基づいて異なる環境にデプロイ
-
-```yaml
-jobs:
-  deploy:
-    steps:
-      # ...
-      - name: Deploy to development
-        if: github.ref == 'refs/heads/develop'
-        run: |
-          export ENVIRONMENT=development
-          ./ecspresso deploy --config=ecspresso-dev.yml
-
-      - name: Deploy to staging
-        if: github.ref == 'refs/heads/staging'
-        run: |
-          export ENVIRONMENT=staging
-          ./ecspresso deploy --config=ecspresso-staging.yml
-
-      - name: Deploy to production
-        if: github.ref == 'refs/heads/main'
-        run: |
-          export ENVIRONMENT=production
-          ./ecspresso deploy --config=ecspresso-prod.yml
-```
-
-2. **環境ファイルの使用**：環境ごとに異なる環境変数ファイルを使用
+複数環境（開発、ステージング、本番）でのデプロイを管理するには、環境変数ファイルを使用します：
 
 ```bash
 # 開発環境へのデプロイ
-ecspresso deploy --envfile=dev.env
+ecspresso deploy --config ecspresso.yml --envfile dev.env
 
 # ステージング環境へのデプロイ
-ecspresso deploy --envfile=staging.env
+ecspresso deploy --config ecspresso.yml --envfile staging.env
 
 # 本番環境へのデプロイ
-ecspresso deploy --envfile=prod.env
+ecspresso deploy --config ecspresso.yml --envfile production.env
 ```
 
-## デプロイの検証
+環境変数ファイルの例：
 
-CI/CDパイプラインでデプロイ後の検証を行うには、以下のアプローチが有効です：
+```
+# dev.env
+DESIRED_COUNT=1
+MEMORY=512
+CPU=256
 
-```yaml
-jobs:
-  deploy:
-    steps:
-      # ...
-      - name: Deploy to ECS
-        run: |
-          ./ecspresso deploy --wait-until=deployed
-
-      - name: Verify deployment
-        run: |
-          # サービスのステータスを確認
-          ./ecspresso status
-
-          # エンドポイントにリクエストを送信して応答を確認
-          curl -f https://your-service-endpoint/health
+# production.env
+DESIRED_COUNT=3
+MEMORY=1024
+CPU=512
 ```
 
-## ロールバック戦略
+## セキュリティのベストプラクティス
 
-CI/CDパイプラインでデプロイに失敗した場合のロールバック戦略を実装することも重要です：
+CI/CDパイプラインでecspressoを使用する際のセキュリティのベストプラクティス：
 
-```yaml
-jobs:
-  deploy:
-    steps:
-      # ...
-      - name: Deploy to ECS
-        id: deploy
-        run: |
-          ./ecspresso deploy --wait-until=deployed || echo "::set-output name=deploy_failed::true"
-
-      - name: Rollback on failure
-        if: steps.deploy.outputs.deploy_failed == 'true'
-        run: |
-          echo "Deployment failed, rolling back..."
-          ./ecspresso rollback
-```
-
-## ベストプラクティス
-
-1. **バージョン固定**：ecspressoの特定のバージョンを使用して、予期しない動作を防ぐ
-2. **タイムアウト設定**：長時間実行されるデプロイのためにタイムアウトを適切に設定
-3. **ログの保存**：デプロイログを保存して、問題のトラブルシューティングに役立てる
-4. **通知の設定**：デプロイの成功/失敗を通知するメカニズムを実装
-5. **デプロイ履歴の管理**：タスク定義のリビジョンを定期的に整理して、履歴を管理
+1. 最小権限の原則に従ったIAMポリシーを使用する
+2. 機密情報はシークレット管理サービスを使用して保存する
+3. デプロイ用のIAMロールを作成し、必要な権限のみを付与する
+4. 本番環境へのデプロイには承認ステップを追加する
