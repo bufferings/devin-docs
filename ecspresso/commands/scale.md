@@ -2,108 +2,163 @@
 layout: default
 title: scale
 parent: コマンドリファレンス
-nav_order: 14
+grand_parent: ecspresso
+nav_order: 16
 ---
 
 # scale
 
-`scale`コマンドは、サービスのタスク数を変更します。これは`deploy --skip-task-definition --no-update-service`と同等の機能を持ちます。
+`scale`コマンドは、ECSサービスのタスク数を変更するためのコマンドです。サービスの負荷に応じてタスク数を手動で調整する場合に使用します。
 
-## 使い方
+## 基本的な使い方
 
 ```console
-$ ecspresso scale --config ecspresso.yml --tasks 10
+$ ecspresso scale --tasks N [オプション]
 ```
 
 ## オプション
 
-| オプション | 説明 |
-|------------|------|
-| `--config` | 設定ファイルのパス（デフォルト: ecspresso.yml） |
-| `--tasks` | 設定するタスク数 |
-| `--wait-until-stable` | サービスが安定するまで待機（デフォルト: true） |
-| `--no-wait-until-stable` | サービスが安定するまで待機しない |
-| `--suspend-auto-scaling` | Auto Scalingを一時停止 |
-| `--resume-auto-scaling` | Auto Scalingを再開 |
-| `--auto-scaling-min` | Auto Scalingの最小値を設定 |
-| `--auto-scaling-max` | Auto Scalingの最大値を設定 |
-| `--dry-run` | 実際にスケールを行わずに実行内容を表示 |
+| オプション | 説明 | デフォルト値 |
+|------------|------|------------|
+| `--config` | 設定ファイルのパス | `ecspresso.yml` |
+| `--tasks` | 設定するタスク数 | - |
+| `--dry-run` | 実際にスケールせずに実行内容を表示 | `false` |
+| `--no-wait` | サービスが安定状態になるのを待たない | `false` |
+
+## 出力例
+
+```
+2023/01/01 12:00:00 [info] myservice/default Starting scale
+2023/01/01 12:00:00 [info] myservice/default Scaling service to 5 tasks
+2023/01/01 12:00:00 [info] myservice/default Service is stable now. Completed!
+```
 
 ## 使用例
 
 ### 基本的な使用方法
 
 ```console
-$ ecspresso scale --config ecspresso.yml --tasks 10
+$ ecspresso scale --config ecspresso.yml --tasks 5
 ```
 
-### Auto Scalingの設定を変更
+### ドライラン
 
 ```console
-$ ecspresso scale --config ecspresso.yml --auto-scaling-min 5 --auto-scaling-max 20
+$ ecspresso scale --config ecspresso.yml --tasks 5 --dry-run
 ```
 
-### Auto Scalingを一時停止
+### 安定状態を待たない
 
 ```console
-$ ecspresso scale --config ecspresso.yml --suspend-auto-scaling
+$ ecspresso scale --config ecspresso.yml --tasks 5 --no-wait
 ```
 
-### Auto Scalingを再開
+## スケーリングプロセス
 
-```console
-$ ecspresso scale --config ecspresso.yml --resume-auto-scaling
-```
+`scale`コマンドは、以下のプロセスでサービスをスケールします：
 
-### ドライランモードで実行内容を確認
-
-```console
-$ ecspresso scale --config ecspresso.yml --tasks 10 --dry-run
-```
-
-## スケーリングフロー
+1. 現在のサービス情報を取得
+2. サービスを更新して、タスク数を変更
+3. サービスが安定状態になるまで待機（`--no-wait`オプションが指定されていない場合）
 
 ```mermaid
-sequenceDiagram
-    participant User as ユーザー
-    participant Ecspresso as ecspresso
-    participant ECS as Amazon ECS
-    participant AppAS as Application Auto Scaling
-    
-    User->>Ecspresso: scale コマンド実行
-    Ecspresso->>ECS: 現在のサービス情報を取得
-    ECS-->>Ecspresso: サービス情報
-    
-    alt tasks オプション指定あり
-        Ecspresso->>ECS: デザイアドカウントを更新
-        ECS-->>Ecspresso: サービス更新開始
-    end
-    
-    alt auto-scaling-min/max オプション指定あり
-        Ecspresso->>AppAS: スケーリングポリシーを更新
-        AppAS-->>Ecspresso: ポリシー更新完了
-    end
-    
-    alt suspend-auto-scaling=true
-        Ecspresso->>AppAS: Auto Scalingを一時停止
-        AppAS-->>Ecspresso: 一時停止完了
-    end
-    
-    alt resume-auto-scaling=true
-        Ecspresso->>AppAS: Auto Scalingを再開
-        AppAS-->>Ecspresso: 再開完了
-    end
-    
-    alt wait-until-stable=true
-        Ecspresso->>ECS: サービスの安定を待機
-        ECS-->>Ecspresso: サービス安定通知
-    end
-    
-    Ecspresso-->>User: スケーリング完了
+graph TD
+    A[開始] --> B[サービス情報を取得]
+    B --> C[サービスを更新]
+    C --> D{--no-wait?}
+    D -->|はい| E[完了]
+    D -->|いいえ| F[サービスが安定状態になるまで待機]
+    F --> G[完了]
+```
+
+## 自動スケーリングとの関係
+
+`scale`コマンドは、手動でタスク数を変更するためのコマンドです。自動スケーリングが設定されている場合は、以下の点に注意してください：
+
+1. `scale`コマンドで設定したタスク数は、自動スケーリングによって上書きされる可能性があります
+2. 自動スケーリングを一時的に無効にするには、AWS Application Auto Scalingの`suspend-scaling-policy`コマンドを使用します
+3. 自動スケーリングを再開するには、AWS Application Auto Scalingの`resume-scaling-policy`コマンドを使用します
+
+```bash
+# 自動スケーリングを一時停止
+$ aws application-autoscaling suspend-scaling-policy \
+  --service-namespace ecs \
+  --scalable-dimension ecs:service:DesiredCount \
+  --resource-id service/my-cluster/myservice \
+  --policy-name cpu-tracking-scaling-policy
+
+# タスク数を変更
+$ ecspresso scale --config ecspresso.yml --tasks 5
+
+# 自動スケーリングを再開
+$ aws application-autoscaling resume-scaling-policy \
+  --service-namespace ecs \
+  --scalable-dimension ecs:service:DesiredCount \
+  --resource-id service/my-cluster/myservice \
+  --policy-name cpu-tracking-scaling-policy
+```
+
+## CI/CDパイプラインでの使用
+
+`scale`コマンドは、CI/CDパイプラインでサービスのタスク数を自動的に調整するのに役立ちます。以下は、GitHub Actionsでの使用例です：
+
+```yaml
+jobs:
+  scale:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: kayac/ecspresso@v2
+        with:
+          version: v2.3.0
+      - run: |
+          # 平日の朝にタスク数を増やす
+          if [ $(date +%u) -le 5 ] && [ $(date +%H) -eq 8 ]; then
+            ecspresso scale --config ecspresso.yml --tasks 10
+          fi
+          
+          # 平日の夜にタスク数を減らす
+          if [ $(date +%u) -le 5 ] && [ $(date +%H) -eq 20 ]; then
+            ecspresso scale --config ecspresso.yml --tasks 2
+          fi
+```
+
+## スケジュールに基づくスケーリング
+
+AWS Application Auto Scalingを使用して、スケジュールに基づいてタスク数を自動的に調整することもできます。
+
+```bash
+# 平日の朝にタスク数を増やすスケジュールを作成
+$ aws application-autoscaling put-scheduled-action \
+  --service-namespace ecs \
+  --scalable-dimension ecs:service:DesiredCount \
+  --resource-id service/my-cluster/myservice \
+  --scheduled-action-name scale-up-weekday-morning \
+  --schedule "cron(0 8 ? * MON-FRI *)" \
+  --scalable-target-action MinCapacity=5,MaxCapacity=10
+
+# 平日の夜にタスク数を減らすスケジュールを作成
+$ aws application-autoscaling put-scheduled-action \
+  --service-namespace ecs \
+  --scalable-dimension ecs:service:DesiredCount \
+  --resource-id service/my-cluster/myservice \
+  --scheduled-action-name scale-down-weekday-evening \
+  --schedule "cron(0 20 ? * MON-FRI *)" \
+  --scalable-target-action MinCapacity=2,MaxCapacity=2
 ```
 
 ## 注意事項
 
-- このコマンドはタスク定義を更新せず、タスク数のみを変更します。
-- Auto Scalingが有効な場合、`--tasks`オプションで設定したタスク数は、Auto Scalingによって上書きされる可能性があります。
-- Auto Scalingの設定を変更する場合は、`--auto-scaling-min`と`--auto-scaling-max`オプションを使用してください。
+- `--tasks`オプションは必須です。設定するタスク数を指定する必要があります
+- `--dry-run`オプションを使用すると、実際にスケールせずに実行内容を確認できます
+- `--no-wait`オプションを使用すると、サービスが安定状態になるのを待たずにコマンドを終了できます
+- タスク数を0に設定することもできますが、その場合はサービスが実行されなくなります
+- タスク数を大幅に増やす場合は、クラスターのリソース制限に注意してください
+- 自動スケーリングが設定されている場合は、`scale`コマンドで設定したタスク数が上書きされる可能性があります
+- スケーリング操作は、サービスの更新として処理されるため、サービスの更新に関連する制限が適用されます
+
+## 関連コマンド
+
+- [deploy](./deploy.html) - サービスをデプロイ
+- [status](./status.html) - サービスの状態を表示
+- [wait](./wait.html) - サービスが安定状態になるまで待機

@@ -2,30 +2,71 @@
 layout: default
 title: verify
 parent: コマンドリファレンス
-nav_order: 17
+grand_parent: ecspresso
+nav_order: 3
 ---
 
 # verify
 
-`verify`コマンドは、設定内のリソースを検証します。デプロイ前にリソースの問題を発見するのに役立ちます。
+`verify`コマンドは、設定ファイル、タスク定義ファイル、サービス定義ファイルの構文と内容を検証するためのコマンドです。デプロイ前に設定の問題を発見するのに役立ちます。
 
-## 使い方
+## 基本的な使い方
 
 ```console
-$ ecspresso verify --config ecspresso.yml
+$ ecspresso verify [オプション]
 ```
 
 ## オプション
 
-| オプション | 説明 |
-|------------|------|
-| `--config` | 設定ファイルのパス（デフォルト: ecspresso.yml） |
-| `--task-definition` | タスク定義のJSONファイルパス |
-| `--service-definition` | サービス定義のJSONファイルパス |
-| `--verify-task-definition` | タスク定義を検証（デフォルト: true） |
-| `--no-verify-task-definition` | タスク定義を検証しない |
-| `--verify-service` | サービスを検証（デフォルト: true） |
-| `--no-verify-service` | サービスを検証しない |
+| オプション | 説明 | デフォルト値 |
+|------------|------|------------|
+| `--config` | 設定ファイルのパス | `ecspresso.yml` |
+| `--envfile` | 環境変数ファイルのパス | - |
+| `--ext-str` | Jsonnet用の外部文字列値 | - |
+| `--ext-code` | Jsonnet用の外部コード値 | - |
+
+## 検証内容
+
+`verify`コマンドは、以下の項目を検証します：
+
+1. **設定ファイル**
+   - 必須フィールドの存在
+   - フィールドの型
+   - ファイルパスの有効性
+
+2. **タスク定義ファイル**
+   - JSON/Jsonnet構文
+   - 必須フィールドの存在
+   - フィールドの型
+   - リソース制限の有効性
+
+3. **サービス定義ファイル**
+   - JSON/Jsonnet構文
+   - 必須フィールドの存在
+   - フィールドの型
+   - 設定の整合性
+
+## 出力例
+
+### 検証成功時
+
+```
+2023/01/01 12:00:00 [info] myservice/default Starting verify
+2023/01/01 12:00:00 [info] myservice/default Loaded config from ecspresso.yml
+2023/01/01 12:00:00 [info] myservice/default Loaded task definition from ecs-task-def.json
+2023/01/01 12:00:00 [info] myservice/default Loaded service definition from ecs-service-def.json
+2023/01/01 12:00:00 [info] myservice/default Verification succeeded!
+```
+
+### 検証失敗時
+
+```
+2023/01/01 12:00:00 [info] myservice/default Starting verify
+2023/01/01 12:00:00 [info] myservice/default Loaded config from ecspresso.yml
+2023/01/01 12:00:00 [info] myservice/default Loaded task definition from ecs-task-def.json
+2023/01/01 12:00:00 [error] myservice/default Invalid service definition: missing required field "serviceName"
+2023/01/01 12:00:00 [error] myservice/default Verification failed!
+```
 
 ## 使用例
 
@@ -35,54 +76,106 @@ $ ecspresso verify --config ecspresso.yml
 $ ecspresso verify --config ecspresso.yml
 ```
 
-### タスク定義のみを検証
+### 環境変数ファイルを使用
 
 ```console
-$ ecspresso verify --config ecspresso.yml --no-verify-service
+$ ecspresso verify --config ecspresso.yml --envfile production.env
 ```
 
-### サービス定義のみを検証
+### Jsonnet用の外部変数を指定
 
 ```console
-$ ecspresso verify --config ecspresso.yml --no-verify-task-definition
+$ ecspresso verify --config ecspresso.yml --ext-str IMAGE_TAG=v1.2.3 --ext-str ENV=production
 ```
 
-## 検証項目
+## 検証エラーの例と解決方法
 
-`verify`コマンドは、以下の項目を検証します：
-
-1. **タスク定義の検証**
-   - タスクロールとタスク実行ロールが存在するか
-   - コンテナイメージがECRに存在するか
-   - シークレットが存在し、読み取り可能か
-   - ログ設定が有効か
-
-2. **サービス定義の検証**
-   - ECSクラスターが存在するか
-   - ターゲットグループが存在するか
-   - セキュリティグループが存在するか
-   - サブネットが存在するか
-   - キャパシティプロバイダーが存在するか
-
-## 出力例
+### 1. タスク定義の問題
 
 ```
-2023/04/01 12:34:56 myService/default Verifying resources...
-2023/04/01 12:34:56 myService/default Verified task definition
-2023/04/01 12:34:56 myService/default Verified service definition
-2023/04/01 12:34:56 myService/default All resources are valid!
+[error] Invalid task definition: CPU and Memory values required for Fargate
 ```
 
-## 使用シナリオ
+**解決方法**: タスク定義に`cpu`と`memory`フィールドを追加します。
 
-`verify`コマンドは、以下のような場合に便利です：
+```json
+{
+  "family": "myservice",
+  "cpu": "256",
+  "memory": "512",
+  // ...
+}
+```
 
-1. デプロイ前にリソースの問題を発見したい場合
-2. CI/CDパイプラインで設定の検証を行いたい場合
-3. 新しい環境に設定をデプロイする前に検証したい場合
+### 2. サービス定義の問題
+
+```
+[error] Invalid service definition: networkConfiguration required for awsvpc network mode
+```
+
+**解決方法**: サービス定義に`networkConfiguration`フィールドを追加します。
+
+```json
+{
+  "networkConfiguration": {
+    "awsvpcConfiguration": {
+      "subnets": [
+        "subnet-12345678",
+        "subnet-87654321"
+      ],
+      "securityGroups": [
+        "sg-12345678"
+      ],
+      "assignPublicIp": "DISABLED"
+    }
+  }
+}
+```
+
+### 3. 設定ファイルの問題
+
+```
+[error] Invalid config: service_definition file not found
+```
+
+**解決方法**: 設定ファイルで指定されたサービス定義ファイルが存在することを確認します。
+
+```yaml
+region: ap-northeast-1
+cluster: default
+service: myservice
+service_definition: ecs-service-def.json  # このファイルが存在することを確認
+task_definition: ecs-task-def.json
+```
+
+## CI/CDパイプラインでの使用
+
+`verify`コマンドは、CI/CDパイプラインでデプロイ前の検証に役立ちます。以下は、GitHub Actionsでの使用例です：
+
+```yaml
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: kayac/ecspresso@v2
+        with:
+          version: v2.3.0
+      - run: |
+          ecspresso verify --config ecspresso.yml
+```
 
 ## 注意事項
 
-- このコマンドはリソースを変更せず、検証のみを行います。
-- 検証に失敗した場合、エラーメッセージが表示されます。
-- すべての検証項目をパスしても、デプロイ時に問題が発生する可能性があります。
+- `verify`コマンドは、ローカルファイルの検証のみを行い、AWSリソースとの整合性は確認しません
+- テンプレート変数を使用している場合は、`--envfile`または`--ext-str`オプションで値を指定する必要があります
+- Jsonnetファイルを使用している場合は、`--ext-str`または`--ext-code`オプションで外部変数を渡すことができます
+- `verify`コマンドは、デプロイ前の問題を発見するために使用することをお勧めします
+- CI/CDパイプラインで`verify`コマンドを実行することで、問題のある設定がデプロイされるのを防ぐことができます
+
+## 関連コマンド
+
+- [init](./init.html) - 既存のECSサービスから設定ファイルを生成
+- [render](./render.html) - 設定ファイルをレンダリングして標準出力に表示
+- [deploy](./deploy.html) - サービスをデプロイ
+- [diff](./diff.html) - ローカルの設定ファイルと現在のサービスとの差分を表示
