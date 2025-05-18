@@ -1,154 +1,33 @@
 ---
 layout: default
-title: 大規模サービスの管理
-parent: 実践ガイド
+title: Managing Large-scale Services
+parent: Practical Guides
 grand_parent: ecspresso
-nav_order: 3
+nav_order: 2
 ---
 
-# 大規模サービスの管理
+# Managing Large-scale Services
 
-このページでは、ecspressoを使用して大規模なECSサービスやマイクロサービスアーキテクチャを管理する方法について説明します。
+This guide provides best practices for using ecspresso to manage large-scale ECS services.
 
-## 大規模サービス管理の概要
+## Blue/Green Deployments
 
-大規模なアプリケーションやマイクロサービスアーキテクチャでは、多数のECSサービスを管理する必要があります。ecspressoを使用すると、これらのサービスを効率的に管理できます。
-
-```mermaid
-graph TD
-    A[マイクロサービスアーキテクチャ] --> B[サービスA]
-    A --> C[サービスB]
-    A --> D[サービスC]
-    B --> E[ecspresso設定A]
-    C --> F[ecspresso設定B]
-    D --> G[ecspresso設定C]
-    E --> H[デプロイパイプラインA]
-    F --> I[デプロイパイプラインB]
-    G --> J[デプロイパイプラインC]
-```
-
-## マイクロサービスアーキテクチャの管理
-
-### ディレクトリ構造の例
-
-```
-.
-├── services
-│   ├── service-a
-│   │   ├── ecspresso.yml
-│   │   ├── ecs-task-def.json
-│   │   └── ecs-service-def.json
-│   ├── service-b
-│   │   ├── ecspresso.yml
-│   │   ├── ecs-task-def.json
-│   │   └── ecs-service-def.json
-│   └── service-c
-│       ├── ecspresso.yml
-│       ├── ecs-task-def.json
-│       └── ecs-service-def.json
-└── scripts
-    ├── deploy-all.sh
-    ├── status-all.sh
-    └── verify-all.sh
-```
-
-### デプロイスクリプトの例
-
-deploy-all.sh:
-```bash
-#!/bin/bash
-
-set -e
-
-SERVICES="service-a service-b service-c"
-ENV=$1
-
-if [ -z "$ENV" ]; then
-  echo "Usage: $0 <environment>"
-  exit 1
-fi
-
-for service in $SERVICES; do
-  echo "Deploying $service to $ENV environment..."
-  cd services/$service
-  ecspresso deploy --config ecspresso.yml --envfile=../../envs/$ENV.env
-  cd ../..
-done
-
-echo "All services deployed successfully!"
-```
-
-### ステータス確認スクリプトの例
-
-status-all.sh:
-```bash
-#!/bin/bash
-
-set -e
-
-SERVICES="service-a service-b service-c"
-ENV=$1
-
-if [ -z "$ENV" ]; then
-  echo "Usage: $0 <environment>"
-  exit 1
-fi
-
-for service in $SERVICES; do
-  echo "Checking status of $service in $ENV environment..."
-  cd services/$service
-  ecspresso status --config ecspresso.yml --envfile=../../envs/$ENV.env
-  cd ../..
-done
-```
-
-### 検証スクリプトの例
-
-verify-all.sh:
-```bash
-#!/bin/bash
-
-set -e
-
-SERVICES="service-a service-b service-c"
-ENV=$1
-
-if [ -z "$ENV" ]; then
-  echo "Usage: $0 <environment>"
-  exit 1
-fi
-
-for service in $SERVICES; do
-  echo "Verifying $service in $ENV environment..."
-  cd services/$service
-  ecspresso verify --config ecspresso.yml --envfile=../../envs/$ENV.env
-  cd ../..
-done
-
-echo "All services verified successfully!"
-```
-
-## Blue/Greenデプロイメント
-
-大規模なサービスでは、ダウンタイムを最小限に抑えるためにBlue/Greenデプロイメントを使用することが重要です。ecspressoは、AWS CodeDeployを使用したBlue/Greenデプロイメントをサポートしています。
-
-### 設定例（ecspresso.yml）
+For large-scale services, blue/green deployments via CodeDeploy provide safer, zero-downtime deployments:
 
 ```yaml
-region: ap-northeast-1
-cluster: default
-service: myservice
+# ecspresso.yml
+region: us-west-2
+cluster: production
+service: web-service
 task_definition: ecs-task-def.json
 service_definition: ecs-service-def.json
-codedeploy:
-  application_name: AppECS-default-myservice
-  deployment_group_name: DgpECS-default-myservice
+code_deploy:
+  application_name: AppECS-production-web-service
+  deployment_group_name: DgpECS-production-web-service
   deployment_config_name: CodeDeployDefault.ECSAllAtOnce
-  termination_wait_time_in_minutes: 5
-  auto_rollback_enabled: true
 ```
 
-### サービス定義例（ecs-service-def.json）
+Service definition must include the deployment controller:
 
 ```json
 {
@@ -157,141 +36,64 @@ codedeploy:
   },
   "loadBalancers": [
     {
-      "containerName": "nginx",
-      "containerPort": 80,
-      "targetGroupArn": "{{ tfstate `aws_lb_target_group.blue.arn` }}"
+      "targetGroupArn": "arn:aws:elasticloadbalancing:us-west-2:123456789012:targetgroup/blue-tg/abcdef",
+      "containerName": "web",
+      "containerPort": 80
     }
   ]
 }
 ```
 
-### AppSpec例
+## Auto Scaling Management
 
-```yaml
-version: 0.0
-Resources:
-  - TargetService:
-      Type: AWS::ECS::Service
-      Properties:
-        TaskDefinition: <TASK_DEFINITION>
-        LoadBalancerInfo:
-          ContainerName: nginx
-          ContainerPort: 80
-        PlatformVersion: "1.4.0"
-Hooks:
-  - BeforeInstall: "LambdaFunctionToValidateBeforeInstall"
-  - AfterInstall: "LambdaFunctionToValidateAfterInstall"
-  - AfterAllowTestTraffic: "LambdaFunctionToValidateAfterTestTrafficStarts"
-  - BeforeAllowTraffic: "LambdaFunctionToValidateBeforeAllowingProductionTraffic"
-  - AfterAllowTraffic: "LambdaFunctionToValidateAfterAllowingProductionTraffic"
+ecspresso can manage ECS Auto Scaling during deployments:
+
+```shell
+# Suspend auto scaling before deployment
+ecspresso deploy --suspend-auto-scaling
+
+# Resume auto scaling after deployment
+ecspresso deploy --resume-auto-scaling
+
+# Set specific auto scaling min/max capacity
+ecspresso deploy --auto-scaling-min=5 --auto-scaling-max=20
 ```
 
-### Blue/Greenデプロイメントのフロー
+## Deployment Strategies
+
+### Canary Deployments with CodeDeploy
 
 ```mermaid
-sequenceDiagram
-    participant User
-    participant Ecspresso
-    participant ECS
-    participant CodeDeploy
-    participant ALB
-
-    User->>Ecspresso: ecspresso deploy
-    Ecspresso->>ECS: 新しいタスク定義を登録
-    Ecspresso->>CodeDeploy: デプロイメントを作成
-    CodeDeploy->>ECS: 新しいタスクセットを作成（グリーン環境）
-    CodeDeploy->>ALB: テストリスナーにグリーン環境を登録
-    CodeDeploy-->>User: テスト期間
-    CodeDeploy->>ALB: 本番リスナーをグリーン環境に切り替え
-    CodeDeploy->>ECS: 古いタスクセット（ブルー環境）を終了
-    CodeDeploy-->>Ecspresso: デプロイメント完了
-    Ecspresso-->>User: デプロイ完了
+graph TD
+    A[Start Deployment] --> B[Register New Task Definition]
+    B --> C[Create CodeDeploy Deployment]
+    C --> D[Shift 10% Traffic to New Version]
+    D --> E[Wait for Bake Time]
+    E --> F[Shift 100% Traffic to New Version]
+    F --> G[Deployment Complete]
 ```
 
-## Auto Scaling
+Configure with the appropriate deployment config:
 
-大規模なサービスでは、トラフィックの変動に対応するためにAuto Scalingを使用することが重要です。ecspressoは、ECSサービスのAuto Scaling設定をサポートしています。
+```yaml
+code_deploy:
+  application_name: AppECS-production-web-service
+  deployment_group_name: DgpECS-production-web-service
+  deployment_config_name: CodeDeployDefault.ECSCanary10Percent5Minutes
+```
 
-### Auto Scaling設定例
+## Resource Management
+
+For large services, optimize resource usage:
 
 ```json
 {
-  "cluster": "default",
-  "serviceName": "myservice",
-  "desiredCount": 2,
-  "deploymentConfiguration": {
-    "maximumPercent": 200,
-    "minimumHealthyPercent": 100
+  "taskDefinition": {
+    "cpu": "1024",
+    "memory": "2048",
+    "ephemeralStorage": {
+      "sizeInGiB": 100
+    }
   }
 }
 ```
-
-### Auto Scalingを一時停止してデプロイ
-
-```bash
-ecspresso deploy --config ecspresso.yml --suspend-auto-scaling
-```
-
-### デプロイ後にAuto Scalingを再開
-
-```bash
-ecspresso deploy --config ecspresso.yml --resume-auto-scaling
-```
-
-## 大規模サービスのモニタリング
-
-大規模なサービスでは、サービスのステータスを定期的に確認することが重要です。ecspressoは、サービスのステータスを確認するための`status`コマンドを提供しています。
-
-```bash
-ecspresso status --config ecspresso.yml
-```
-
-また、サービスが安定するまで待機するための`wait`コマンドも提供しています。
-
-```bash
-ecspresso wait --config ecspresso.yml
-```
-
-## タスクの実行と管理
-
-大規模なサービスでは、メンテナンスやバッチ処理のためにタスクを実行することがあります。ecspressoは、タスクを実行するための`run`コマンドを提供しています。
-
-```bash
-ecspresso run --config ecspresso.yml
-```
-
-また、タスク上でコマンドを実行するための`exec`コマンドも提供しています。
-
-```bash
-ecspresso exec --config ecspresso.yml --command "bash"
-```
-
-## ベストプラクティス
-
-### 1. サービスごとの設定ファイル
-
-各サービスに専用の設定ファイルを使用します。
-
-### 2. 共通設定の共有
-
-共通の設定は共有し、サービス固有の設定のみをサービスごとに設定します。
-
-### 3. デプロイスクリプトの使用
-
-複数のサービスをデプロイするためのスクリプトを使用します。
-
-### 4. Blue/Greenデプロイメントの使用
-
-ダウンタイムを最小限に抑えるためにBlue/Greenデプロイメントを使用します。
-
-### 5. Auto Scalingの使用
-
-トラフィックの変動に対応するためにAuto Scalingを使用します。
-
-### 6. モニタリングの実施
-
-サービスのステータスを定期的に確認します。
-
-### 7. CI/CDパイプラインの使用
-
-デプロイを自動化するためにCI/CDパイプラインを使用します。
