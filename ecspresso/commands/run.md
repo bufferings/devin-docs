@@ -3,152 +3,110 @@ layout: default
 title: run
 parent: コマンドリファレンス
 grand_parent: ecspresso
-nav_order: 5
+nav_order: 9
 ---
 
 # run
 
-`run`コマンドは、タスクを実行します。
+`run`コマンドは、ECSで一時的なタスクを実行します。バッチ処理やメンテナンス作業など、一時的な処理を行うのに便利です。
 
 ## 基本的な使い方
 
-```bash
-ecspresso run --config CONFIG_FILE
+```console
+$ ecspresso run --config ecspresso.yml --task-definition ecs-task-def.json
 ```
 
 ## オプション
 
 | オプション | 説明 | デフォルト値 |
 |------------|------|-------------|
-| `--config` | 設定ファイルのパス | `ecspresso.yml` |
-| `--task-definition` | タスク定義ファイルのパス | 設定ファイルで指定されたパス |
-| `--revision` | 使用するタスク定義のリビジョン | - |
-| `--latest-task-definition` | 最新のタスク定義を使用するかどうか | `false` |
-| `--count` | 実行するタスクの数 | `1` |
-| `--launch-type` | 起動タイプ（EC2、FARGATE） | - |
-| `--network-configuration` | ネットワーク設定（JSON形式） | - |
-| `--cluster` | ECSクラスター名 | 設定ファイルで指定されたクラスター |
-| `--platform-version` | プラットフォームバージョン | - |
-| `--capacity-provider-strategy` | キャパシティプロバイダー戦略（JSON形式） | - |
-| `--overrides` | タスク定義のオーバーライド（JSON形式） | - |
-| `--skip-task-definition` | タスク定義の登録をスキップするかどうか | `false` |
-| `--wait` | タスクが完了するまで待機するかどうか | `false` |
-| `--no-wait` | タスクが完了するまで待機しないかどうか | `true` |
-| `--startup-timeout` | 起動タイムアウト | `10m` |
-| `--execution-timeout` | 実行タイムアウト | - |
-| `--enable-execute-command` | ECS Execを有効にするかどうか | `false` |
-| `--propagate-tags` | タグを伝播するかどうか | - |
-| `--tags` | タスクに追加するタグ（JSON形式） | - |
-| `--container-name` | コンテナ名 | - |
-| `--container-port` | コンテナポート | - |
-| `--forward-to` | ポートフォワーディング先 | - |
-
-## 詳細
-
-`run`コマンドは、以下の処理を行います：
-
-1. タスク定義ファイルから新しいタスク定義を登録（`--skip-task-definition`が指定されていない場合）
-2. 登録されたタスク定義を使用してタスクを実行
-3. タスクが完了するまで待機（`--wait`が指定されている場合）
-
-このコマンドは、バッチ処理やメンテナンス作業などの一時的なタスクを実行するのに役立ちます。
-
-## タスク実行フロー
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant Ecspresso
-    participant ECS
-    
-    User->>Ecspresso: ecspresso run
-    Ecspresso->>Ecspresso: 設定ファイル読み込み
-    Ecspresso->>Ecspresso: タスク定義ファイル読み込み
-    Ecspresso->>Ecspresso: テンプレート処理
-    Ecspresso->>ECS: 新しいタスク定義を登録
-    ECS-->>Ecspresso: タスク定義ARN
-    Ecspresso->>ECS: タスクを実行
-    ECS-->>Ecspresso: タスクARN
-    alt --wait オプションが指定されている場合
-        Ecspresso->>ECS: タスクのステータスを確認
-        ECS-->>Ecspresso: タスクのステータス
-        Ecspresso->>Ecspresso: タスクが完了するまで待機
-    end
-    Ecspresso-->>User: タスク実行完了
-```
+| `--config FILE` | 設定ファイルのパス | `ecspresso.yml` |
+| `--task-definition FILE` | タスク定義ファイルのパス | 設定ファイルの`task_definition`値 |
+| `--revision N` | 使用するタスク定義のリビジョン | `0` (最新) |
+| `--count N` | 実行するタスクの数 | `1` |
+| `--launch-type TYPE` | 起動タイプ（`EC2`または`FARGATE`） | タスク定義から自動判定 |
+| `--cluster CLUSTER` | ECSクラスター名 | 設定ファイルの`cluster`値 |
+| `--network-configuration JSON` | ネットワーク設定（JSON形式） | - |
+| `--overrides JSON` | タスク定義のオーバーライド（JSON形式） | - |
+| `--container-overrides JSON` | コンテナ定義のオーバーライド（JSON形式） | - |
+| `--skip-task-definition` | 新しいタスク定義の登録をスキップ | `false` |
+| `--wait` | タスクが完了するまで待機 | `false` |
+| `--latest-task-definition` | 最新のタスク定義を使用 | `false` |
+| `--platform-version VERSION` | Fargateのプラットフォームバージョン | `LATEST` |
+| `--capacity-provider-strategy JSON` | キャパシティプロバイダー戦略（JSON形式） | - |
+| `--group NAME` | タスクグループ名 | - |
+| `--propagate-tags` | タグの伝播（`TASK_DEFINITION`または`SERVICE`） | - |
+| `--tags JSON` | タスクに付けるタグ（JSON形式） | - |
+| `--enable-execute-command` | ExecuteCommandを有効にする | `false` |
+| `--dry-run` | 実際にタスクを実行せずに、実行される操作を表示 | `false` |
 
 ## 使用例
 
 ### 基本的なタスク実行
 
-```bash
-ecspresso run --config ecspresso.yml
-```
-
-### タスクが完了するまで待機
-
-```bash
-ecspresso run --config ecspresso.yml --wait
-```
-
-### 特定のリビジョンのタスク定義を使用
-
-```bash
-ecspresso run --config ecspresso.yml --revision 10
-```
-
-### 最新のタスク定義を使用
-
-```bash
-ecspresso run --config ecspresso.yml --latest-task-definition
+```console
+$ ecspresso run --config ecspresso.yml --task-definition ecs-task-def.json
 ```
 
 ### 複数のタスクを実行
 
-```bash
-ecspresso run --config ecspresso.yml --count 3
-```
-
-### FARGATEで実行
-
-```bash
-ecspresso run --config ecspresso.yml --launch-type FARGATE --network-configuration '{"awsvpcConfiguration":{"subnets":["subnet-12345678"],"securityGroups":["sg-12345678"],"assignPublicIp":"ENABLED"}}'
+```console
+$ ecspresso run --config ecspresso.yml --task-definition ecs-task-def.json --count 3
 ```
 
 ### コマンドをオーバーライドして実行
 
-```bash
-ecspresso run --config ecspresso.yml --overrides '{"containerOverrides":[{"name":"app","command":["php","artisan","migrate"]}]}'
+```console
+$ ecspresso run --config ecspresso.yml --task-definition ecs-task-def.json --container-overrides '{"containerOverrides":[{"name":"app","command":["echo","hello"]}]}'
 ```
 
-### ポートフォワーディングを使用
+### 環境変数をオーバーライドして実行
 
-```bash
-ecspresso run --config ecspresso.yml --container-name app --container-port 80 --forward-to 8080
+```console
+$ ecspresso run --config ecspresso.yml --task-definition ecs-task-def.json --container-overrides '{"containerOverrides":[{"name":"app","environment":[{"name":"DEBUG","value":"true"}]}]}'
 ```
 
-このコマンドは、コンテナのポート80をローカルポート8080にフォワーディングします。
+### タスクが完了するまで待機
 
-## ポートフォワーディング
+```console
+$ ecspresso run --config ecspresso.yml --task-definition ecs-task-def.json --wait
+```
 
-ecspressoは、タスク上のコンテナポートをローカルポートにフォワーディングする機能を提供しています。これにより、ローカル環境からタスク上のアプリケーションにアクセスできます。
+### ドライランモード
+
+```console
+$ ecspresso run --config ecspresso.yml --task-definition ecs-task-def.json --dry-run
+```
+
+## タスク実行フロー
+
+`run`コマンドの実行フローは以下の通りです：
 
 ```mermaid
-graph LR
-    A[ローカル環境] -->|8080| B[ポートフォワーディング]
-    B -->|80| C[ECSタスク]
-    C -->|コンテナ| D[アプリケーション]
+graph TD
+    A[run開始] --> B[設定ファイル読み込み]
+    B --> C{--skip-task-definition?}
+    C -->|Yes| D[既存のタスク定義を使用]
+    C -->|No| E[新しいタスク定義を登録]
+    D --> F[RunTaskパラメータ準備]
+    E --> F
+    F --> G{--dry-run?}
+    G -->|Yes| H[パラメータ表示]
+    G -->|No| I[RunTask実行]
+    H --> J[完了]
+    I --> K{--wait?}
+    K -->|Yes| L[タスク完了まで待機]
+    K -->|No| M[タスクARN表示]
+    L --> N[タスク結果表示]
+    M --> J
+    N --> J
 ```
 
-ポートフォワーディングを使用するには、以下のオプションを指定します：
+## 注意事項
 
-- `--container-name` - コンテナ名
-- `--container-port` - コンテナポート
-- `--forward-to` - ローカルポート
-
-例：
-```bash
-ecspresso run --config ecspresso.yml --container-name app --container-port 80 --forward-to 8080
-```
-
-このコマンドは、タスクを実行し、コンテナ「app」のポート80をローカルポート8080にフォワーディングします。
+- `run`コマンドは、サービスではなく一時的なタスクを実行します
+- タスク定義ファイルを指定しない場合、設定ファイルの`task_definition`値が使用されます
+- `--overrides`または`--container-overrides`オプションを使用して、タスク定義の一部をオーバーライドできます
+- `--wait`オプションを指定すると、すべてのタスクが完了するまでコマンドはブロックされます
+- Fargateを使用する場合、`--network-configuration`オプションが必要です
+- `--enable-execute-command`オプションを指定すると、`exec`コマンドでタスクに接続できます

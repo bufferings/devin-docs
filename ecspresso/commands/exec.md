@@ -8,143 +8,102 @@ nav_order: 8
 
 # exec
 
-`exec`コマンドは、タスク上でコマンドを実行します。
+`exec`コマンドは、実行中のECSタスクでコマンドを実行します。コンテナ内でデバッグやメンテナンス作業を行うのに便利です。
 
 ## 基本的な使い方
 
-```bash
-ecspresso exec --config CONFIG_FILE --command "COMMAND"
+```console
+$ ecspresso exec --config ecspresso.yml --command "ls -la" --container app
 ```
 
 ## オプション
 
 | オプション | 説明 | デフォルト値 |
 |------------|------|-------------|
-| `--config` | 設定ファイルのパス | `ecspresso.yml` |
-| `--command` | 実行するコマンド | - |
-| `--container` | コマンドを実行するコンテナ名 | - |
-| `--cluster` | ECSクラスター名 | 設定ファイルで指定されたクラスター |
-| `--service` | サービス名 | 設定ファイルで指定されたサービス |
-| `--task-id` | タスクID | - |
-| `--task-definition-family` | タスク定義ファミリー | - |
-| `--interactive` | インタラクティブモードを使用するかどうか | `false` |
-| `--tty` | TTYを割り当てるかどうか | `false` |
-| `--timeout` | タイムアウト時間 | `10m` |
-
-## 詳細
-
-`exec`コマンドは、AWS ECS Execを使用してタスク上でコマンドを実行します。このコマンドを使用するには、以下の条件を満たす必要があります：
-
-1. タスクがECS Execをサポートしている（プラットフォームバージョン1.4.0以上）
-2. タスク定義でECS Execが有効になっている
-3. タスク実行ロールにECS Execの権限がある
-
-このコマンドは、タスク上でのデバッグやトラブルシューティングに役立ちます。
-
-## 実行フロー
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant Ecspresso
-    participant ECS
-    participant Task
-    
-    User->>Ecspresso: ecspresso exec --command "ls -la"
-    Ecspresso->>Ecspresso: 設定ファイル読み込み
-    Ecspresso->>ECS: タスクIDを取得
-    ECS-->>Ecspresso: タスクID
-    Ecspresso->>ECS: ECS Execを使用してコマンドを実行
-    ECS->>Task: コマンドを実行
-    Task-->>ECS: コマンド実行結果
-    ECS-->>Ecspresso: コマンド実行結果
-    Ecspresso-->>User: コマンド実行結果を表示
-```
+| `--config FILE` | 設定ファイルのパス | `ecspresso.yml` |
+| `--command COMMAND` | 実行するコマンド | - |
+| `--container NAME` | コマンドを実行するコンテナ名 | タスク定義の最初のコンテナ |
+| `--task-id TASK_ID` | コマンドを実行するタスクID | - |
+| `--interactive` | 対話モードで実行 | `false` |
+| `--latest` | 最新のタスクを選択 | `false` |
+| `--select` | タスクを選択するプロンプトを表示 | `false` |
 
 ## 使用例
 
-### 基本的な使用例
+### 特定のコマンドを実行
 
-```bash
-ecspresso exec --config ecspresso.yml --command "ls -la"
+```console
+$ ecspresso exec --config ecspresso.yml --command "ls -la" --container app
 ```
 
-### 特定のコンテナでコマンドを実行する例
+### 対話モードでシェルを起動
 
-```bash
-ecspresso exec --config ecspresso.yml --container nginx --command "ls -la"
+```console
+$ ecspresso exec --config ecspresso.yml --command "/bin/bash" --container app --interactive
 ```
 
-### 特定のタスクでコマンドを実行する例
+### 最新のタスクでコマンドを実行
 
-```bash
-ecspresso exec --config ecspresso.yml --task-id 1234567890abcdef0 --command "ls -la"
+```console
+$ ecspresso exec --config ecspresso.yml --command "ps aux" --container app --latest
 ```
 
-### インタラクティブモードでコマンドを実行する例
+### タスクを選択してコマンドを実行
 
-```bash
-ecspresso exec --config ecspresso.yml --interactive --tty --command "bash"
+```console
+$ ecspresso exec --config ecspresso.yml --command "env" --container app --select
 ```
 
-### タイムアウトを指定する例
+### 特定のタスクIDでコマンドを実行
 
-```bash
-ecspresso exec --config ecspresso.yml --command "ls -la" --timeout 5m
+```console
+$ ecspresso exec --config ecspresso.yml --command "cat /etc/hosts" --container app --task-id arn:aws:ecs:ap-northeast-1:123456789012:task/your-cluster/1234567890abcdef0
 ```
 
-## ECS Execの設定
+## 実行フロー
 
-ECS Execを使用するには、タスク定義でECS Execを有効にする必要があります。以下は、タスク定義でECS Execを有効にする例です：
+`exec`コマンドの実行フローは以下の通りです：
 
-```json
-{
-  "family": "myapp",
-  "executionRoleArn": "arn:aws:iam::123456789012:role/ecsTaskExecutionRole",
-  "taskRoleArn": "arn:aws:iam::123456789012:role/ecsTaskRole",
-  "containerDefinitions": [
-    {
-      "name": "app",
-      "image": "nginx:latest",
-      "essential": true
-    }
-  ],
-  "requiresCompatibilities": [
-    "FARGATE"
-  ],
-  "networkMode": "awsvpc",
-  "cpu": "256",
-  "memory": "512",
-  "enableExecuteCommand": true
-}
+```mermaid
+graph TD
+    A[exec開始] --> B[設定ファイル読み込み]
+    B --> C{タスクID指定?}
+    C -->|Yes| D[指定されたタスクを使用]
+    C -->|No| E{--latest指定?}
+    E -->|Yes| F[最新のタスクを取得]
+    E -->|No| G{--select指定?}
+    G -->|Yes| H[タスク一覧を表示して選択]
+    G -->|No| I[実行中のタスクを1つ選択]
+    D --> J[コンテナ名の確認]
+    F --> J
+    H --> J
+    I --> J
+    J --> K[ECS ExecuteCommandを実行]
+    K --> L{--interactive指定?}
+    L -->|Yes| M[対話モードで実行]
+    L -->|No| N[非対話モードで実行]
+    M --> O[完了]
+    N --> O
 ```
 
-また、タスク実行ロールに以下の権限が必要です：
+## 前提条件
 
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": [
-        "ssmmessages:CreateControlChannel",
-        "ssmmessages:CreateDataChannel",
-        "ssmmessages:OpenControlChannel",
-        "ssmmessages:OpenDataChannel"
-      ],
-      "Resource": "*"
-    }
-  ]
-}
-```
+`exec`コマンドを使用するには、以下の前提条件があります：
 
-## インタラクティブモード
+1. ECS ExecuteCommandが有効になっていること
+   - タスク定義で`enableExecuteCommand: true`が設定されていること
+   - ECSクラスターでExecuteCommandが有効になっていること
 
-`--interactive`オプションと`--tty`オプションを使用すると、インタラクティブモードでコマンドを実行できます。これにより、タスク上でシェルを起動し、対話的にコマンドを実行できます。
+2. 適切なIAM権限があること
+   - `ecs:ExecuteCommand`アクション
+   - SSMセッションの管理に必要な権限
 
-```bash
-ecspresso exec --config ecspresso.yml --interactive --tty --command "bash"
-```
+3. AWS CLIまたはSession Managerプラグインがインストールされていること
 
-このコマンドは、タスク上でbashシェルを起動し、対話的にコマンドを実行できます。
+## 注意事項
+
+- `exec`コマンドは、AWS ECS ExecuteCommand機能を使用しています
+- Fargate、EC2の両方の起動タイプで使用できます
+- コンテナ内でコマンドを実行するため、コンテナにコマンドがインストールされている必要があります
+- 対話モード（`--interactive`）では、ターミナルが必要です
+- セキュリティ上の理由から、ExecuteCommandの使用はAWS CloudTrailでログに記録されます

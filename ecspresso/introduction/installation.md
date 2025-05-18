@@ -8,123 +8,88 @@ nav_order: 2
 
 # インストール方法
 
-ecspressoは様々な方法でインストールできます。ここでは、各プラットフォームでのインストール方法を説明します。
+ecspressoは複数の方法でインストールできます。ここでは、各プラットフォームでのインストール方法を説明します。
 
-## Homebrew（macOSとLinux）
+## バイナリのダウンロード
 
-macOSとLinuxでは、Homebrewを使用して簡単にインストールできます。
+GitHub Releasesページから、お使いのプラットフォーム向けのバイナリをダウンロードできます。
 
-```bash
-brew install kayac/tap/ecspresso
+```console
+# macOS (Intel)
+$ curl -sL https://github.com/kayac/ecspresso/releases/latest/download/ecspresso-darwin-amd64.zip > ecspresso.zip
+
+# macOS (Apple Silicon)
+$ curl -sL https://github.com/kayac/ecspresso/releases/latest/download/ecspresso-darwin-arm64.zip > ecspresso.zip
+
+# Linux (x86_64)
+$ curl -sL https://github.com/kayac/ecspresso/releases/latest/download/ecspresso-linux-amd64.zip > ecspresso.zip
+
+# Windows
+$ curl -sL https://github.com/kayac/ecspresso/releases/latest/download/ecspresso-windows-amd64.zip > ecspresso.zip
 ```
 
-## asdf（macOSとLinux）
+ダウンロードしたZIPファイルを解凍し、実行可能ファイルをPATHの通ったディレクトリに配置します。
 
-[asdf](https://asdf-vm.com/)はバージョン管理ツールで、ecspressoをインストールするために使用できます。
-
-```bash
-# プラグインの追加
-asdf plugin add ecspresso
-# または
-asdf plugin add ecspresso https://github.com/kayac/asdf-ecspresso.git
-
-# インストール
-asdf install ecspresso 2.3.0
-asdf global ecspresso 2.3.0
+```console
+$ unzip ecspresso.zip
+$ sudo mv ecspresso /usr/local/bin/
+$ ecspresso version
 ```
 
-## aqua（macOSとLinux）
+## Homebrewを使用したインストール（macOS）
 
-[aqua](https://aquaproj.github.io/)はCLIバージョン管理ツールで、ecspressoをインストールするために使用できます。
+macOSをお使いの場合は、Homebrewを使用してインストールすることもできます。
 
-```bash
-aqua g -i kayac/ecspresso
+```console
+$ brew install kayac/tap/ecspresso
 ```
 
-## バイナリパッケージ
+## Docker
 
-各プラットフォーム用のバイナリパッケージは[GitHubのリリースページ](https://github.com/kayac/ecspresso/releases)からダウンロードできます。
+Dockerイメージも利用可能です。
 
-1. リリースページから適切なバージョンとプラットフォーム用のバイナリをダウンロード
-2. ダウンロードしたファイルを解凍
-3. 実行可能ファイルをPATHの通ったディレクトリに配置
-
-## CircleCI Orbs
-
-CircleCIでecspressoを使用する場合は、Orbsを利用できます。
-
-```yaml
-version: 2.1
-orbs:
-  ecspresso: fujiwara/ecspresso@2.0.4
-jobs:
-  install:
-    steps:
-      - checkout
-      - ecspresso/install:
-          version: v2.3.0 # または latest
-          # version-file: .ecspresso-version
-          os: linux # または windows または darwin
-          arch: amd64 # または arm64
-      - run:
-          command: |
-            ecspresso version
+```console
+$ docker pull kayac/ecspresso
+$ docker run --rm -it -v $(pwd):/work -v $HOME/.aws:/root/.aws kayac/ecspresso version
 ```
 
-`version: latest`は各Orbバージョンで異なるバージョンのecspressoをインストールします：
-- fujiwara/ecspresso@0.0.15
-  - 最新のリリースバージョン（v2以降）
-- fujiwara/ecspresso@1.0.0
-  - v1.xの最新バージョン
-- fujiwara/ecspresso@2.0.3
-  - v2.xの最新バージョン
+## Go言語を使用したインストール
 
-注意: 新しいバージョンのecspressoがリリースされると予期しない動作を引き起こす可能性があるため、`version: latest`の使用は推奨されません。
+Go言語の環境がある場合は、`go install`コマンドを使用してインストールできます。
 
-Orb `fujiwara/ecspresso@2.0.2`は`version-file: path/to/file`をサポートしており、ファイルで指定されたecspressoバージョンをインストールします。このバージョン番号には`v`プレフィックスはありません（例：`2.0.0`）。
-
-## GitHub Actions
-
-GitHub Actionsでecspressoを使用する場合は、Action `kayac/ecspresso@v2`を利用できます。このアクションはLinux(x86_64)用のecspressoバイナリを/usr/local/binにインストールします。
-
-```yaml
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: kayac/ecspresso@v2
-        with:
-          version: v2.3.0 # または latest
-          # version-file: .ecspresso-version
-      - run: |
-          ecspresso deploy --config ecspresso.yml
+```console
+$ go install github.com/kayac/ecspresso/v2/cmd/ecspresso@latest
 ```
 
-ecspressoの最新バージョンを使用するには、パラメータ"latest"を渡します。
+## 動作確認
 
-```yaml
-      - uses: kayac/ecspresso@v2
-        with:
-          version: latest
+インストールが完了したら、以下のコマンドでバージョンを確認できます。
+
+```console
+$ ecspresso version
 ```
 
-`version: latest`は各Actionバージョンで異なるバージョンのecspressoをインストールします：
-- kayac/ecspresso@v1
-  - v1.xの最新バージョン
-- kayac/ecspresso@v2
-  - v2.xの最新バージョン
+## 前提条件
 
-注意: 新しいバージョンのecspressoがリリースされると予期しない動作を引き起こす可能性があるため、`version: latest`の使用は推奨されません。
+ecspressoを使用するには、以下の前提条件があります：
 
-Action `kayac/ecspresso@v2`は`version-file: path/to/file`をサポートしており、ファイルで指定されたecspressoバージョンをインストールします。このバージョン番号には`v`プレフィックスはありません（例：`2.3.0`）。
+1. AWS認証情報の設定
+   - AWS CLIと同様に、環境変数、認証情報ファイル、またはIAMロールを使用して認証します
+   - 必要なIAMポリシーについては、[AWS ECSのドキュメント](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/security_iam_service-with-iam.html)を参照してください
 
-## インストール確認
+2. AWS CLIの設定（オプション）
+   - AWS CLIが設定されていると、ecspressoはその設定を利用します
 
-インストールが成功したかどうかを確認するには、以下のコマンドを実行します：
-
-```bash
-ecspresso version
+```mermaid
+graph TD
+    A[インストール方法の選択] --> B{プラットフォームは?}
+    B -->|macOS| C[Homebrew または バイナリ]
+    B -->|Linux| D[バイナリ または Docker]
+    B -->|Windows| E[バイナリ]
+    B -->|任意| F[Go install]
+    C --> G[AWS認証情報の設定]
+    D --> G
+    E --> G
+    F --> G
+    G --> H[動作確認: ecspresso version]
 ```
-
-バージョン情報が表示されれば、インストールは成功しています。
